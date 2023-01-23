@@ -1,16 +1,3 @@
-(* open Kit *)
-(* open Tok *)
-(* open FixedPoint *)
-(* open Burrow *)
-(* open CfmmTypes *)
-(* open Parameters *)
-(* open LiquidationAuctionTypes *)
-(* open LiquidationAuctionPrimitiveTypes *)
-(* open Fa2Ledger *)
-(* open Fa2Interface *)
-(* open Common *)
-(* open Error *)
-
 type burrow_map = (burrow_id, burrow) big_map
 
 type external_contracts = {
@@ -51,13 +38,11 @@ type deployment_state =
 
 type lazy_function_map = (lazy_function_id, bytes) big_map
 type wrapper =
-  (* BEGIN_LIGO *) [@layout:comb] (* END_LIGO *)
+  [@layout:comb]
   { lazy_functions : lazy_function_map
   ; metadata: (string, bytes) big_map
   ; deployment_state : deployment_state
   }
-
-(* [@@@coverage off] *)
 
 type view_current_liquidation_auction_details_result =
   { auction_id: liquidation_auction_id
@@ -67,9 +52,6 @@ type view_current_liquidation_auction_details_result =
   ; remaining_blocks: int option
   ; remaining_seconds: int option
   }
-(* [@@deriving show] *)
-
-(* [@@@coverage on] *)
 
 (* ************************************************************************* *)
 (**                           EXTERNAL_CONTRACTS                             *)

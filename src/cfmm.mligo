@@ -40,9 +40,6 @@
  * implementation of remove_liquidity currently allows liquidity to reach zero.
  * *)
 [@inline] let cfmm_assert_initialized (u: cfmm) : cfmm =
-
-
-
   u
 
 (** Compute the price of kit in ctok (ratio of ctok and kit in the cfmm
@@ -60,7 +57,7 @@
  * cfmm contract was touched. *)
 let cfmm_sync_last_observed (cfmm: cfmm) : cfmm =
 
-  if leq_nat_nat Tezos.level cfmm.last_level then
+  if leq_nat_nat (Tezos.get_level ()) cfmm.last_level then
     (* do nothing if it's been touched already in this block *)
     cfmm
   else
@@ -69,7 +66,7 @@ let cfmm_sync_last_observed (cfmm: cfmm) : cfmm =
         make_ratio
           (mul_nat_int (ctok_to_denomination_nat cfmm.ctok) kit_scaling_factor_int)
           (mul_nat_int (kit_to_denomination_nat cfmm.kit) ctok_scaling_factor_int);
-      last_level = Tezos.level;
+      last_level = Tezos.get_level ();
     }
 
 (** Compute the maximum [min_kit_expected] for [cfmm_buy_kit] to succeed. *)
@@ -123,7 +120,7 @@ let cfmm_buy_kit
   : (kit * cfmm) =
   if (eq_ctok_ctok ctok_amount ctok_zero) then
     (failwith error_BuyKitNoCtokGiven : (kit * cfmm))
-  else if (geq_timestamp_timestamp Tezos.now deadline) then
+  else if (geq_timestamp_timestamp (Tezos.get_now ()) deadline) then
     (failwith error_CfmmTooLate : (kit * cfmm))
   else if (eq_kit_kit min_kit_expected kit_zero) then
     (failwith error_BuyKitTooLowExpectedKit : (kit * cfmm))
@@ -186,7 +183,7 @@ let cfmm_sell_kit
   : (ctok * cfmm) =
   if (eq_kit_kit kit_amount kit_zero) then
     (failwith error_SellKitNoKitGiven : (ctok * cfmm))
-  else if geq_timestamp_timestamp Tezos.now deadline then
+  else if geq_timestamp_timestamp (Tezos.get_now ()) deadline then
     (failwith error_CfmmTooLate : (ctok * cfmm))
   else if (eq_ctok_ctok min_ctok_expected ctok_zero) then
     (failwith error_SellKitTooLowExpectedCtok : (ctok * cfmm))
@@ -251,7 +248,7 @@ let cfmm_add_liquidity
     (min_lqt_minted: lqt)
     (deadline: timestamp)
   : (lqt * kit * cfmm) =
-  if geq_timestamp_timestamp Tezos.now deadline then
+  if geq_timestamp_timestamp (Tezos.get_now ()) deadline then
     (failwith error_CfmmTooLate : (lqt * kit * cfmm))
   else if eq_ctok_ctok ctok_amount ctok_zero then
     (failwith error_AddLiquidityNoCtokGiven : (lqt * kit * cfmm))
@@ -328,7 +325,7 @@ let cfmm_remove_liquidity
     (min_kit_withdrawn: kit)
     (deadline: timestamp)
   : (ctok * kit * cfmm) =
-  if geq_timestamp_timestamp Tezos.now deadline then
+  if geq_timestamp_timestamp (Tezos.get_now ()) deadline then
     (failwith error_CfmmTooLate : (ctok * kit * cfmm))
   else if eq_lqt_lqt lqt_burned lqt_zero then
     (failwith error_RemoveLiquidityNoLiquidityBurned : (ctok * kit * cfmm))

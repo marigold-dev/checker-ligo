@@ -79,7 +79,7 @@ Utku: Lifecycle of liquidation slices.
 (* open Error *)
 (* open SliceList *)
 
-(* BEGIN_OCAML   
+(* BEGIN_OCAML
 (* [@@@coverage off] *)
 
 let liquidation_auction_current_auction_tok (auctions: liquidation_auctions) : tok option =
@@ -308,7 +308,7 @@ let start_liquidation_auction_if_possible
       let current_auction =
         Some
           { contents = new_auction;
-            state = Descending (start_value, Tezos.now); } in
+            state = Descending (start_value, (Tezos.get_now ())); } in
       let auctions = { auctions with current_auction = current_auction; } in
 
       auctions
@@ -322,7 +322,8 @@ let liquidation_auction_current_auction_minimum_bid (auction: current_liquidatio
     (match auction.state with
      | Descending (start_value, start_time) ->
        let auction_decay_rate = fixedpoint_of_ratio_ceil auction_decay_rate in
-       let time_passed = sub_timestamp_timestamp Tezos.now start_time in
+       let now = Tezos.get_now () in
+       let time_passed = sub_timestamp_timestamp now start_time in
        let seconds_passed = abs time_passed in
 
        let decay = fixedpoint_pow (fixedpoint_sub fixedpoint_one auction_decay_rate) seconds_passed in
@@ -343,10 +344,10 @@ let is_liquidation_auction_complete
     (None: bid option)
   | Ascending (b, t, h) ->
     if gt_int_int
-        (sub_timestamp_timestamp Tezos.now t)
+        (sub_timestamp_timestamp (Tezos.get_now ()) t)
         max_bid_interval_in_seconds
     && gt_int_int
-         (sub_nat_nat Tezos.level h)
+         (sub_nat_nat (Tezos.get_level ()) h)
          (int max_bid_interval_in_blocks)
     then Some b
     else (None: bid option)
@@ -418,7 +419,9 @@ let liquidation_auction_place_bid (auction: current_liquidation_auction) (bid: b
   if geq_kit_kit bid.kit (liquidation_auction_current_auction_minimum_bid auction)
   then
     begin
-      let updated_auction = { auction with state = Ascending (bid, Tezos.now, Tezos.level); } in
+      let now = Tezos.get_now () in
+      let level = Tezos.get_level () in
+      let updated_auction = { auction with state = Ascending (bid, now, level); } in
 
       match auction.state with
       (* For descending auctions we don't have to return kit to anyone. *)
@@ -462,7 +465,7 @@ let completed_liquidation_auction_won_by_sender
     (avl_storage: mem) (auction_id: liquidation_auction_id): auction_outcome option =
   match avl_root_data avl_storage auction_id with
   | Some outcome ->
-    if outcome.winning_bid.address = Tezos.sender
+    if outcome.winning_bid.address = Tezos.get_sender ()
     then Some outcome
     else (None: auction_outcome option)
   | None -> (None: auction_outcome option)

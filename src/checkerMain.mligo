@@ -55,7 +55,7 @@ let main (op, state: params * wrapper): operation list * wrapper =
 
   let ops, lazy_functions, metadata, deployment_state = match deployment_state with
     | Unsealed deployer ->
-      begin if Tezos.sender = deployer then
+      begin if Tezos.get_sender () = deployer then
           begin match op with
             | DeployFunction p ->
               let lfi, bs = p in
@@ -79,7 +79,8 @@ let main (op, state: params * wrapper): operation list * wrapper =
 
               (* emit a touch operation to checker *)
               let touchOp =
-                match (Tezos.get_entrypoint_opt "%touch" Tezos.self_address: unit contract option) with
+                let self_address = Tezos.get_self_address () in
+                match (Tezos.get_entrypoint_opt "%touch" self_address : unit contract option) with
                 | Some c -> Tezos.transaction () (0mutez) c
                 | None -> (failwith ((-4)) : operation) in
 
@@ -130,7 +131,7 @@ let main (op, state: params * wrapper): operation list * wrapper =
                  let fid, params = lazyParamsToLazyFunctionId op in
                  (get_lazy_function lazy_functions fid) (checker, params)
                  (* END_LIGO *)
-              (* BEGIN_OCAML   
+              (* BEGIN_OCAML
               runLazyParams op checker
                  END_OCAML *)
           end in

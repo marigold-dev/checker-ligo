@@ -36,7 +36,7 @@ let initial_parameters : parameters =
     imbalance_index = fixedpoint_one;
     outstanding_kit = kit_zero;
     circulating_kit = kit_zero;
-    last_touched = Tezos.now;
+    last_touched = Tezos.get_now ();
   }
 
 (** Compute the current minting index (in tok). To get tok/kit must multiply with q. *)
@@ -335,7 +335,8 @@ let parameters_touch
     } = parameters in
 
   (* Calculate the number of seconds elapsed. *)
-  let duration_in_seconds = sub_timestamp_timestamp Tezos.now parameters_last_touched in
+  let now = Tezos.get_now () in
+  let duration_in_seconds = sub_timestamp_timestamp now parameters_last_touched in
 
 
   (* Update the indices *)
@@ -376,7 +377,7 @@ let parameters_touch
     imbalance_index = current_imbalance_index;
     outstanding_kit = current_outstanding_kit;
     circulating_kit = current_circulating_kit;
-    last_touched = Tezos.now;
+    last_touched = Tezos.get_now ();
   }
   )
 

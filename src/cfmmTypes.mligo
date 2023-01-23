@@ -26,5 +26,5 @@ let initial_cfmm () : cfmm =
     kit = kit_of_denomination (1n);
     lqt = lqt_of_denomination (1n);
     kit_in_ctok_in_prev_block = one_ratio; (* Same as ctok/kit now. *)
-    last_level = Tezos.level;
+    last_level = Tezos.get_level ();
   }

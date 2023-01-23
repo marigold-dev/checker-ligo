@@ -86,7 +86,7 @@ type wctez_params =
               let { fa2_state = fa2_state; total_token = total_token; ctez_fa12_address = ctez_fa12_address; metadata = metadata; } = st in (* deconstruct *)
               let { to_ = to_; token_id = token_id; amount = amnt; } = x in
 
-              if fa2_is_operator (fa2_state, Tezos.sender, from_, token_id)
+              if fa2_is_operator (fa2_state, (Tezos.get_sender ()), from_, token_id)
               then
                 (* Update FA2 Ledger *)
                 let () = if token_id = wctez_token_id then () else failwith "FA2_TOKEN_UNDEFINED" in
@@ -121,7 +121,7 @@ type wctez_params =
              } = op in
          (* The standard does not specify who is permitted to update operators. We restrict
             it only to the owner. *)
-         if owner <> Tezos.sender
+         if owner <> (Tezos.get_sender ())
          then (failwith "FA2_NOT_OWNER" : fa2_state)
          else
            { st  with
@@ -136,7 +136,7 @@ type wctez_params =
                operator = operator;
                token_id = token_id;
              } = op in
-         if owner <> Tezos.sender
+         if owner <> (Tezos.get_sender ())
          then (failwith "FA2_NOT_OWNER" : fa2_state)
          else
            { st  with
@@ -168,12 +168,12 @@ type wctez_params =
     | None -> (failwith error_GetEntrypointOptFailureFA12Transfer : fa12_transfer contract)
   in
   let op = Tezos.transaction
-      {address_from = Tezos.sender; address_to = Tezos.self_address; value = amnt;}
+      {address_from = (Tezos.get_sender ()); address_to = (Tezos.get_self_address ()); value = amnt;}
       (0mutez)
       ctez_fa12_contract
   in
   (* Issue the specified amount of tokens to the caller *)
-  let fa2_state = ledger_issue_wctez_token (fa2_state, Tezos.sender, amnt) in
+  let fa2_state = ledger_issue_wctez_token (fa2_state, (Tezos.get_sender ()), amnt) in
   let total_token = add_nat_nat total_token amnt in
   let state = { fa2_state = fa2_state; total_token = total_token; ctez_fa12_address = ctez_fa12_address; metadata = metadata; } in (* reconstruct *)
   ([op], state)
@@ -186,12 +186,12 @@ type wctez_params =
     | None -> (failwith error_GetEntrypointOptFailureFA12Transfer : fa12_transfer contract)
   in
   let op = Tezos.transaction
-      {address_from = Tezos.self_address; address_to = Tezos.sender; value = amnt;}
+      {address_from = (Tezos.get_self_address ()); address_to = (Tezos.get_sender ()); value = amnt;}
       (0mutez)
       ctez_fa12_contract
   in
   (* Remove the specified amount of tokens for the caller *)
-  let fa2_state = ledger_withdraw_wctez_token (fa2_state, Tezos.sender, amnt) in
+  let fa2_state = ledger_withdraw_wctez_token (fa2_state, (Tezos.get_sender ()), amnt) in
   (* Remove the specified amount of token from circulation *)
   let total_token =
     match is_nat (sub_nat_nat total_token amnt) with

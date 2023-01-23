@@ -60,7 +60,7 @@
              } = op in
          (* The standard does not specify who is permitted to update operators. We restrict
             it only to the owner. *)
-         if owner <> Tezos.sender
+         if owner <> Tezos.get_sender ()
          then (failwith "FA2_NOT_OWNER" : fa2_state)
          else
            { st  with
@@ -75,7 +75,7 @@
                operator = operator;
                token_id = token_id;
              } = op in
-         if owner <> Tezos.sender
+         if owner <> Tezos.get_sender ()
          then (failwith "FA2_NOT_OWNER" : fa2_state)
          else
            { st  with
@@ -97,7 +97,7 @@
        List.fold_left
          (fun ((st, x): fa2_state * fa2_transfer_destination) ->
             let { to_ = to_; token_id = token_id; amount = amnt; } = x in
-            if fa2_is_operator (st, Tezos.sender, from_, token_id)
+            if fa2_is_operator (st, Tezos.get_sender (), from_, token_id)
             then
               let () = ensure_valid_fa2_token token_id in
               let st = ledger_withdraw (st, token_id, from_, amnt) in
@@ -112,7 +112,7 @@
     st
     xs
 
-(* BEGIN_OCAML   
+(* BEGIN_OCAML
 (* [@@@coverage off] *)
 
 let fa2_get_token_balance (st: fa2_state) (token_id: fa2_token_id): nat =

@@ -24,7 +24,7 @@
 (* open TokenMetadata *)
 (* open GetOracleEntrypoint *)
 
-(* BEGIN_OCAML   
+(* BEGIN_OCAML
 (* [@@@coverage off] *)
 let compute_outstanding_dissonance (state: checker) : kit (* "real" *) * kit (* approximation *) =
   let approximation = state.parameters.outstanding_kit in
@@ -117,7 +117,7 @@ let ensure_burrow_has_no_unclaimed_slices (auctions: liquidation_auctions) (burr
 
 [@inline] let entrypoint_create_burrow (state, (burrow_no, delegate_opt, tok): checker * (nat * key_hash option * tok)) =
 
-  let burrow_id = (Tezos.sender, burrow_no) in
+  let burrow_id = (Tezos.get_sender (), burrow_no) in
   let () = if Big_map.mem burrow_id state.burrows
     then failwith error_BurrowAlreadyExists
     else () in
@@ -125,7 +125,7 @@ let ensure_burrow_has_no_unclaimed_slices (auctions: liquidation_auctions) (burr
   let origination_op, burrow_address = originate_burrow state delegate_opt in
   (* OP 2: Transfer the collateral to the new burrow's account. *)
   let transfer =
-    { from_ = Tezos.sender; (* from: FA2 account of burrow owner *)
+    { from_ = Tezos.get_sender (); (* from: FA2 account of burrow owner *)
       txs = [
         { to_ = burrow_address;   (* to: FA2 account of the burrow contract *)
           token_id = tok_token_id;
@@ -153,12 +153,12 @@ let entrypoint_touch_burrow (state, burrow_id: checker * burrow_id) : operation 
 
 let entrypoint_deposit_collateral (state, (burrow_no, tok): checker * (nat * tok)) : (operation list * checker) =
 
-  let burrow_id = (Tezos.sender, burrow_no) in
+  let burrow_id = (Tezos.get_sender (), burrow_no) in
   let burrow = find_burrow state.burrows burrow_id in
   let _ = ensure_burrow_has_no_unclaimed_slices state.liquidation_auctions burrow_id in
   let burrow = burrow_deposit_collateral state.parameters tok burrow in
   let transfer =
-    { from_ = Tezos.sender;        (* from: FA2 account of burrow owner *)
+    { from_ = Tezos.get_sender ();        (* from: FA2 account of burrow owner *)
       txs = [
         { to_ = (burrow_address burrow); (* to: FA2 account of the burrow contract *)
           token_id = tok_token_id;
@@ -176,7 +176,7 @@ let entrypoint_deposit_collateral (state, (burrow_no, tok): checker * (nat * tok
 
 let entrypoint_mint_kit (state, (burrow_no, kit): checker * (nat * kit)) : operation list * checker =
 
-  let burrow_id = (Tezos.sender, burrow_no) in
+  let burrow_id = (Tezos.get_sender (), burrow_no) in
   let burrow = find_burrow state.burrows burrow_id in
   let _ = ensure_burrow_has_no_unclaimed_slices state.liquidation_auctions burrow_id in
   let burrow = burrow_mint_kit state.parameters kit burrow in
@@ -184,27 +184,27 @@ let entrypoint_mint_kit (state, (burrow_no, kit): checker * (nat * kit)) : opera
     { state with
       burrows = Big_map.update burrow_id (Some burrow) state.burrows;
       parameters = add_outstanding_and_circulating_kit state.parameters kit;
-      fa2_state = ledger_issue_kit (state.fa2_state, Tezos.sender, kit);
+      fa2_state = ledger_issue_kit (state.fa2_state, Tezos.get_sender (), kit);
     } in
 
   (([]: operation list), state)
 
 let entrypoint_withdraw_collateral (state, (burrow_no, tok): checker * (nat * tok)) : operation list * checker =
 
-  let burrow_id = (Tezos.sender, burrow_no) in
+  let burrow_id = (Tezos.get_sender (), burrow_no) in
   let burrow = find_burrow state.burrows burrow_id in
   let _ = ensure_burrow_has_no_unclaimed_slices state.liquidation_auctions burrow_id in
   let burrow = burrow_withdraw_collateral state.parameters tok burrow in
   let state = {state with burrows = Big_map.update burrow_id (Some burrow) state.burrows} in
   let op = match (Tezos.get_entrypoint_opt "%burrowTransfer" (burrow_address burrow): (address * nat) contract option) with
-    | Some c -> Tezos.transaction (Tezos.sender, tok_to_denomination_nat tok) (0mutez) c
+    | Some c -> Tezos.transaction (Tezos.get_sender (), tok_to_denomination_nat tok) (0mutez) c
     | None -> (failwith error_GetEntrypointOptFailureBurrowTransfer : operation) in
 
   ([op], state)
 
 let entrypoint_burn_kit (state, (burrow_no, kit): checker * (nat * kit)) : operation list * checker =
 
-  let burrow_id = (Tezos.sender, burrow_no) in
+  let burrow_id = (Tezos.get_sender (), burrow_no) in
   let burrow = find_burrow state.burrows burrow_id in
   let _ = ensure_burrow_has_no_unclaimed_slices state.liquidation_auctions burrow_id in
   let burrow, actual_burned = burrow_burn_kit state.parameters kit burrow in
@@ -217,28 +217,23 @@ let entrypoint_burn_kit (state, (burrow_no, kit): checker * (nat * kit)) : opera
 
   let outstanding_to_remove = actual_burned in
   let circulating_to_remove = actual_burned in
-
-
-
-
-
   let state =
     {state with
      burrows = Big_map.update burrow_id (Some burrow) state.burrows;
      parameters = remove_outstanding_and_circulating_kit state.parameters outstanding_to_remove circulating_to_remove;
-     fa2_state = ledger_withdraw_kit (state.fa2_state, Tezos.sender, circulating_to_remove); (* the burrow owner keeps the rest *)
+     fa2_state = ledger_withdraw_kit (state.fa2_state, Tezos.get_sender (), circulating_to_remove); (* the burrow owner keeps the rest *)
     } in
 
   (([]: operation list), state)
 
 let entrypoint_activate_burrow (state, (burrow_no, tok): checker * (nat * tok)) : operation list * checker =
 
-  let burrow_id = (Tezos.sender, burrow_no) in
+  let burrow_id = (Tezos.get_sender (), burrow_no) in
   let burrow = find_burrow state.burrows burrow_id in
   let _ = ensure_burrow_has_no_unclaimed_slices state.liquidation_auctions burrow_id in
   let burrow = burrow_activate state.parameters tok burrow in
   let transfer =
-    { from_ = Tezos.sender; (* from: FA2 account of burrow owner *)
+    { from_ = Tezos.get_sender (); (* from: FA2 account of burrow owner *)
       txs = [
         { to_ = (burrow_address burrow);   (* to: FA2 account of the burrow contract *)
           token_id = tok_token_id;
@@ -256,7 +251,7 @@ let entrypoint_activate_burrow (state, (burrow_no, tok): checker * (nat * tok)) 
 
 let entrypoint_deactivate_burrow (state, (burrow_no, receiver): checker * (nat * address)) : (operation list * checker) =
 
-  let burrow_id = (Tezos.sender, burrow_no) in
+  let burrow_id = (Tezos.get_sender (), burrow_no) in
   let burrow = find_burrow state.burrows burrow_id in
   let _ = ensure_burrow_has_no_unclaimed_slices state.liquidation_auctions burrow_id in
   let (burrow, returned_tok) = burrow_deactivate state.parameters burrow in
@@ -269,7 +264,7 @@ let entrypoint_deactivate_burrow (state, (burrow_no, receiver): checker * (nat *
 
 let entrypoint_set_burrow_delegate (state, (burrow_no, delegate_opt): checker * (nat * key_hash option)) : operation list * checker =
 
-  let burrow_id = (Tezos.sender, burrow_no) in
+  let burrow_id = (Tezos.get_sender (), burrow_no) in
   let burrow = find_burrow state.burrows burrow_id in
   let _ = ensure_burrow_has_no_unclaimed_slices state.liquidation_auctions burrow_id in
   let op = match (Tezos.get_entrypoint_opt "%burrowSetDelegate" (burrow_address burrow) : key_hash option contract option) with
@@ -313,7 +308,7 @@ let entrypoint_set_burrow_delegate (state, (burrow_no, delegate_opt): checker * 
       } in
 
   let op = match (Tezos.get_entrypoint_opt "%burrowTransfer" (burrow_address burrow): (address * nat) contract option) with
-    | Some c -> Tezos.transaction (Tezos.sender, tok_to_denomination_nat liquidation_reward) (0mutez) c
+    | Some c -> Tezos.transaction (Tezos.get_sender (), tok_to_denomination_nat liquidation_reward) (0mutez) c
     | None -> (failwith error_GetEntrypointOptFailureBurrowTransfer : operation) in
 
 
@@ -331,7 +326,7 @@ let entrypoint_cancel_liquidation_slice (state, leaf_ptr: checker * leaf_ptr) : 
     if burrow_is_cancellation_warranted state.parameters burrow cancelled.tok
     then ()
     else failwith error_UnwarrantedCancellation in
-  if Tezos.sender = burrow_owner then
+  if Tezos.get_sender () = burrow_owner then
     let burrow = burrow_return_slice_from_auction cancelled burrow in
     let state =
       { state with
@@ -425,7 +420,7 @@ let touch_liquidation_slice
       circulating_to_remove in
 
   let new_state_fa2_state =
-    let state_fa2_state = ledger_withdraw_kit (state_fa2_state, Tezos.self_address, slice_kit) in
+    let state_fa2_state = ledger_withdraw_kit (state_fa2_state, Tezos.get_self_address (), slice_kit) in
     let state_fa2_state = ledger_issue_kit (state_fa2_state, burrow_owner, excess_kit) in
     state_fa2_state in
 
@@ -436,7 +431,7 @@ let touch_liquidation_slice
 
   (* Signal the burrow to send the collateral to checker. *)
   let op = match (Tezos.get_entrypoint_opt "%burrowTransfer" (burrow_address burrow): (address * nat) contract option) with
-    | Some c -> Tezos.transaction (Tezos.self_address, tok_to_denomination_nat slice.tok) (0mutez) c
+    | Some c -> Tezos.transaction (Tezos.get_self_address (), tok_to_denomination_nat slice.tok) (0mutez) c
     | None -> (failwith error_GetEntrypointOptFailureBurrowTransfer : operation) in
   ((op :: ops), auctions, state_burrows, state_parameters, state_fa2_state)
 
@@ -499,9 +494,9 @@ let entrypoint_buy_kit (state, p: checker * (ctok * kit * timestamp)) : operatio
   let (kit_tokens, updated_cfmm) = cfmm_buy_kit state.cfmm state.parameters.target ctok min_kit_expected deadline in
 
   let transfer =
-    { from_ = Tezos.sender;
+    { from_ = Tezos.get_sender ();
       txs = [
-        { to_ = Tezos.self_address;
+        { to_ = Tezos.get_self_address ();
           token_id = ctok_token_id;
           amount = ctok_to_denomination_nat ctok;
         }
@@ -514,8 +509,8 @@ let entrypoint_buy_kit (state, p: checker * (ctok * kit * timestamp)) : operatio
 
   let state_fa2_state =
     let state_fa2_state = state.fa2_state in
-    let state_fa2_state = ledger_withdraw_kit (state_fa2_state, Tezos.self_address, kit_tokens) in
-    let state_fa2_state = ledger_issue_kit (state_fa2_state, Tezos.sender, kit_tokens) in
+    let state_fa2_state = ledger_withdraw_kit (state_fa2_state, Tezos.get_self_address (), kit_tokens) in
+    let state_fa2_state = ledger_issue_kit (state_fa2_state, Tezos.get_sender (), kit_tokens) in
     state_fa2_state in
 
 
@@ -540,9 +535,9 @@ let entrypoint_sell_kit (state, p: checker * (kit * ctok * timestamp)) : operati
   let (ctok, updated_cfmm) = cfmm_sell_kit state.cfmm state.parameters.target kit min_ctok_expected deadline in
 
   let transfer =
-    { from_ = Tezos.self_address;
+    { from_ = Tezos.get_self_address ();
       txs = [
-        { to_ = Tezos.sender;
+        { to_ = Tezos.get_sender ();
           token_id = ctok_token_id;
           amount = ctok_to_denomination_nat ctok;
         }
@@ -555,8 +550,8 @@ let entrypoint_sell_kit (state, p: checker * (kit * ctok * timestamp)) : operati
 
   let state_fa2_state =
     let state_fa2_state = state.fa2_state in
-    let state_fa2_state = ledger_withdraw_kit (state_fa2_state, Tezos.sender, kit) in
-    let state_fa2_state = ledger_issue_kit (state_fa2_state, Tezos.self_address, kit) in
+    let state_fa2_state = ledger_withdraw_kit (state_fa2_state, Tezos.get_sender (), kit) in
+    let state_fa2_state = ledger_issue_kit (state_fa2_state, Tezos.get_self_address (), kit) in
     state_fa2_state in
 
 
@@ -578,9 +573,9 @@ let entrypoint_add_liquidity (state, p: checker * (ctok * kit * lqt * timestamp)
     cfmm_add_liquidity state.cfmm ctok_deposited max_kit_deposited min_lqt_minted deadline in
 
   let transfer =
-    { from_ = Tezos.sender;
+    { from_ = Tezos.get_sender ();
       txs = [
-        { to_ = Tezos.self_address;
+        { to_ = Tezos.get_self_address ();
           token_id = ctok_token_id;
           amount = ctok_to_denomination_nat ctok_deposited;
         }
@@ -595,22 +590,15 @@ let entrypoint_add_liquidity (state, p: checker * (ctok * kit * lqt * timestamp)
 
   let state_fa2_state =
     let state_fa2_state = state.fa2_state in
-    let state_fa2_state = ledger_withdraw_kit (state_fa2_state, Tezos.sender, deposited_kit) in
-    let state_fa2_state = ledger_issue_kit (state_fa2_state, Tezos.self_address, deposited_kit) in
-    let state_fa2_state = ledger_issue_lqt (state_fa2_state, Tezos.sender, lqt_tokens) in (* create *)
+    let state_fa2_state = ledger_withdraw_kit (state_fa2_state, Tezos.get_sender (), deposited_kit) in
+    let state_fa2_state = ledger_issue_kit (state_fa2_state, Tezos.get_self_address (), deposited_kit) in
+    let state_fa2_state = ledger_issue_lqt (state_fa2_state, Tezos.get_sender (), lqt_tokens) in (* create *)
     state_fa2_state in
-
-
-
-
   let state =
     { state with
       cfmm = updated_cfmm;
       fa2_state = state_fa2_state;
     } in
-
-
-
   ([op], state)
 
 let entrypoint_remove_liquidity (state, p: checker * (lqt * ctok * kit * timestamp)) : operation list * checker =
@@ -620,9 +608,9 @@ let entrypoint_remove_liquidity (state, p: checker * (lqt * ctok * kit * timesta
     cfmm_remove_liquidity state.cfmm lqt_burned min_ctok_withdrawn min_kit_withdrawn deadline in
 
   let transfer =
-    { from_ = Tezos.self_address;
+    { from_ = Tezos.get_self_address ();
       txs = [
-        { to_ = Tezos.sender;
+        { to_ = Tezos.get_sender ();
           token_id = ctok_token_id;
           amount = ctok_to_denomination_nat ctok;
         }
@@ -635,22 +623,15 @@ let entrypoint_remove_liquidity (state, p: checker * (lqt * ctok * kit * timesta
 
   let state_fa2_state =
     let state_fa2_state = state.fa2_state in
-    let state_fa2_state = ledger_withdraw_lqt (state_fa2_state, Tezos.sender, lqt_burned) in (* destroy *)
-    let state_fa2_state = ledger_withdraw_kit (state_fa2_state, Tezos.self_address, kit_tokens) in
-    let state_fa2_state = ledger_issue_kit (state_fa2_state, Tezos.sender, kit_tokens) in
+    let state_fa2_state = ledger_withdraw_lqt (state_fa2_state, Tezos.get_sender (), lqt_burned) in (* destroy *)
+    let state_fa2_state = ledger_withdraw_kit (state_fa2_state, Tezos.get_self_address (), kit_tokens) in
+    let state_fa2_state = ledger_issue_kit (state_fa2_state, Tezos.get_sender (), kit_tokens) in
     state_fa2_state in
-
-
-
-
   let state =
     { state with
       cfmm = updated_cfmm;
       fa2_state = state_fa2_state;
     } in
-
-
-
   ([op], state)
 
 (* ************************************************************************* *)
@@ -660,7 +641,7 @@ let entrypoint_remove_liquidity (state, p: checker * (lqt * ctok * kit * timesta
 let entrypoint_liquidation_auction_place_bid (state, (auction_id, kit): checker * (liquidation_auction_id * kit)) : operation list * checker =
 
 
-  let bid = { address=(Tezos.sender); kit=kit; } in
+  let bid = { address=(Tezos.get_sender ()); kit=kit; } in
   let current_auction = liquidation_auction_get_current_auction state.liquidation_auctions in
   let () = if current_auction.contents = auction_id
     then ()
@@ -680,14 +661,14 @@ let entrypoint_liquidation_auction_place_bid (state, (auction_id, kit): checker 
       match old_winning_bid with
       | None -> state_fa2_state (* nothing to do *)
       | Some old_winning_bid ->
-        let state_fa2_state = ledger_withdraw_kit (state_fa2_state, Tezos.self_address, old_winning_bid.kit) in
+        let state_fa2_state = ledger_withdraw_kit (state_fa2_state, Tezos.get_self_address (), old_winning_bid.kit) in
         let state_fa2_state = ledger_issue_kit (state_fa2_state, old_winning_bid.address, old_winning_bid.kit) in
         state_fa2_state in
 
 
     (* credit the new winning bid to checker *)
-    let state_fa2_state = ledger_withdraw_kit (state_fa2_state, Tezos.sender, kit) in
-    let state_fa2_state = ledger_issue_kit (state_fa2_state, Tezos.self_address, kit) in
+    let state_fa2_state = ledger_withdraw_kit (state_fa2_state, Tezos.get_sender (), kit) in
+    let state_fa2_state = ledger_issue_kit (state_fa2_state, Tezos.get_self_address (), kit) in
 
     state_fa2_state in
 
@@ -709,9 +690,9 @@ let entrypoint_liquidation_auction_claim_win (state, auction_id: checker * liqui
   let _ = ensure_valid_avl_ptr state.liquidation_auctions.avl_storage auction_id in
   let (tok, liquidation_auctions) = liquidation_auction_claim_win state.liquidation_auctions auction_id in
   let transfer =
-    { from_ = Tezos.self_address; (* from: FA2 account of the checker contract *)
+    { from_ = Tezos.get_self_address (); (* from: FA2 account of the checker contract *)
       txs = [
-        { to_ = Tezos.sender;     (* to: FA2 account of the auction winner *)
+        { to_ = Tezos.get_sender ();     (* to: FA2 account of the auction winner *)
           token_id = tok_token_id;
           amount = tok_to_denomination_nat tok;
         }
@@ -736,7 +717,7 @@ let entrypoint_liquidation_auction_claim_win (state, auction_id: checker * liqui
   * touch_reward_low_bracket seconds the reward increases by touch_low_reward
   * per second, and after that by touch_high_reward per second. *)
 let calculate_touch_reward (last_touched: timestamp) : kit =
-  let duration_in_seconds = sub_timestamp_timestamp Tezos.now last_touched in
+  let duration_in_seconds = sub_timestamp_timestamp (Tezos.get_now ()) last_touched in
   let low_duration = min_int duration_in_seconds touch_reward_low_bracket in
   let high_duration =
     max_int
@@ -799,7 +780,7 @@ let rec touch_oldest
       external_contracts = state_external_contracts;
     } = state in
 
-  if state_parameters.last_touched = Tezos.now then
+  if state_parameters.last_touched = Tezos.get_now () then
     (* Do nothing if up-to-date (idempotence) *)
     (([]: operation list), state)
   else
@@ -809,7 +790,7 @@ let rec touch_oldest
      * update the circulating kit accordingly.*)
     let reward = calculate_touch_reward state_parameters.last_touched in
     let state_parameters = add_circulating_kit state_parameters reward in
-    let state_fa2_state = ledger_issue_kit (state_fa2_state, Tezos.sender, reward) in
+    let state_fa2_state = ledger_issue_kit (state_fa2_state, Tezos.get_sender (), reward) in
 
     (* 2: Update the system parameters and add accrued burrowing fees to the
      * cfmm sub-contract. *)
@@ -817,7 +798,7 @@ let rec touch_oldest
     let total_accrual_to_cfmm, state_parameters = parameters_touch index kit_in_tok_in_prev_block state_parameters in
     (* Note: state_parameters.circulating kit here already includes the accrual to the CFMM. *)
     let state_cfmm = cfmm_add_accrued_kit state_cfmm total_accrual_to_cfmm in
-    let state_fa2_state = ledger_issue_kit (state_fa2_state, Tezos.self_address, total_accrual_to_cfmm) in
+    let state_fa2_state = ledger_issue_kit (state_fa2_state, Tezos.get_self_address (), total_accrual_to_cfmm) in
 
     (* 3: Update auction-related info (e.g. start a new auction). Note that we
      * always start auctions using the current liquidation price. We could also
@@ -835,7 +816,7 @@ let rec touch_oldest
        should be the last operation we emit, so that the system parameters do
        not change between touching different slices. *)
     let op_oracle =
-      let cb = match (Tezos.get_entrypoint_opt "%receive_price" Tezos.self_address : ((nat * nat) contract) option) with
+      let cb = match (Tezos.get_entrypoint_opt "%receive_price" (Tezos.get_self_address ()) : ((nat * nat) contract) option) with
         | Some cb -> cb
         | None -> (failwith error_GetEntrypointOptFailureReceivePrice : (nat * nat) contract) in
       Tezos.transaction
@@ -875,7 +856,7 @@ let entrypoint_touch (state, _: checker * unit) : (operation list * checker) =
 
 let entrypoint_receive_price (state, oracle_price: checker * (nat * nat)) : (operation list * checker) =
 
-  if Tezos.sender <> state.external_contracts.oracle then
+  if Tezos.get_sender () <> state.external_contracts.oracle then
     (failwith error_UnauthorisedCaller : operation list * checker)
   else
     (* NOTE: By storing the price as a fixedpoint we lose some precision here.
@@ -891,7 +872,7 @@ let entrypoint_receive_price (state, oracle_price: checker * (nat * nat)) : (ope
 
 let entrypoint_receive_ctez_marginal_price (state, price: checker * (nat * nat)) : (operation list * checker) =
 
-  if Tezos.sender <> state.external_contracts.ctez_cfmm then
+  if Tezos.get_sender () <> state.external_contracts.ctez_cfmm then
     (failwith error_UnauthorisedCaller : operation list * checker)
   else
     let num_tez, den_ctez = price in
@@ -980,10 +961,12 @@ let view_current_liquidation_auction_details ((), state: unit * checker) : view_
   let current_bid, blocks, seconds = match auction.state with
     | Descending _ -> (None: (bid option)), (None: (int option)), (None: (int option))
     | Ascending (current_bid, bid_time_seconds, bid_level) ->
+      let level = Tezos.get_level () in
+      let now = Tezos.get_now () in
       (
         Some current_bid,
-        Some (sub_nat_nat (add_nat_nat bid_level max_bid_interval_in_blocks) Tezos.level),
-        Some (sub_timestamp_timestamp (add_timestamp_int bid_time_seconds max_bid_interval_in_seconds) Tezos.now)
+        Some (sub_nat_nat (add_nat_nat bid_level max_bid_interval_in_blocks) level),
+        Some (sub_timestamp_timestamp (add_timestamp_int bid_time_seconds max_bid_interval_in_seconds) now)
       )
   in
   {
