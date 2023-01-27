@@ -1,3 +1,6 @@
 [submodule "breathalyzer"]
 	path = breathalyzer
 	url = https://github.com/marigold-dev/breathalyzer
+[submodule "vendor/ctez"]
+	path = vendor/ctez
+	url = https://github.com/Tezsure/ctez
