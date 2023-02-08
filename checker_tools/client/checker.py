@@ -27,6 +27,7 @@ from checker_tools.builder.config import (
     load_input_config,
 )
 from checker_tools.client.operations import inject
+from checker_tools.client.compilation import ligo_compile
 
 # Time between blocks for sandbox container
 SANDBOX_TIME_BETWEEN_BLOCKS = "1,1"
@@ -475,7 +476,6 @@ def deploy_checker(
         print("Deploying TZIP-16 metadata: chunk {} of {}".format(chunk_no, len(metadata_chunks)))
         inject(tz, checker.deployMetadata(chunk).as_transaction().autofill(ttl=ttl).sign())
 
-    # TODO: implement the batching logic here for speed (see the previous ruby script)
     for fun in functions["lazy_functions"]:
         print("Deploying: {}".format(fun["name"]))
         for chunk_no, chunk in enumerate(fun["chunks"]):
@@ -483,13 +483,16 @@ def deploy_checker(
             inject(tz, checker.deployFunction(arg).as_transaction().autofill(ttl=ttl).sign())
             print("  deployed: chunk {}.".format(chunk_no))
 
+    return checker
+    # FIXME: dead code
+
     print("Sealing.")
 
     external_contracts = {
-        "oracle": oracle,
-        "collateral_fa2": collateral_fa2,
-        "ctok_fa2": cfmm_token_fa2,
-        "ctez_cfmm": ctez_cfmm,
+        "oracle": oracle.address,
+        "collateral_fa2": collateral_fa2.address,
+        "ctok_fa2": cfmm_token_fa2.address,
+        "ctez_cfmm": ctez_cfmm.address,
     }
 
     inject(
@@ -498,22 +501,6 @@ def deploy_checker(
     )
 
     return checker
-
-
-def ligo_compile(src_file: Path, entrypoint: str, out_file: Path):
-    """Compiles an mligo file into michelson using ligo"""
-    try:
-        res = subprocess.run(
-            ["ligo", "compile", "contract", str(src_file), "--entry-point", entrypoint],
-            check=True,
-            capture_output=True,
-        )
-    except subprocess.CalledProcessError as e:
-        print(e.stdout)
-        print(e.stderr)
-        raise e
-    with out_file.open("wb") as f:
-        f.write(res.stdout)
 
 
 def deploy_ctez(tz: PyTezosClient, repo: CheckerRepo, ttl: Optional[int] = None):
