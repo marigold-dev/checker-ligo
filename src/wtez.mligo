@@ -13,9 +13,9 @@
     (fun (p, storage : vault_parameter * vault_storage) ->
        match p with
        | Vault_set_delegate kho ->
-         if Tezos.amount <> 0mutez then
+         if (Tezos.get_amount ()) <> 0mutez then
            (failwith ((-1)) : operation list * vault_storage) (* unwanted tez *)
-         else if Tezos.sender <> storage.owner then
+         else if (Tezos.get_sender ()) <> storage.owner then
            (failwith ((-2)) : operation list * vault_storage) (* unauthorized *)
          else
            ([Tezos.set_delegate kho], storage)
@@ -23,9 +23,9 @@
          (* NOTE: allowed from everyone. *)
          (([]: operation list), storage)
        | Vault_send_tez_to_vault tz_recipient ->
-         if Tezos.amount <> 0mutez then
+         if (Tezos.get_amount ()) <> 0mutez then
            (failwith ((-3)) : operation list * vault_storage) (* unwanted tez *)
-         else if Tezos.sender <> storage.owner then
+         else if (Tezos.get_sender ()) <> storage.owner then
            (failwith ((-4)) : operation list * vault_storage) (* unauthorized *)
          else
            let tz, recipient = tz_recipient in
@@ -34,9 +34,9 @@
              | None -> (failwith ((-8)) : operation) in
            ([op], storage)
        | Vault_send_tez_to_contract tz_recipient ->
-         if Tezos.amount <> 0mutez then
+         if (Tezos.get_amount ()) <> 0mutez then
            (failwith ((-5)) : operation list * vault_storage) (* unwanted tez *)
-         else if Tezos.sender <> storage.owner then
+         else if (Tezos.get_sender ()) <> storage.owner then
            (failwith ((-6)) : operation list * vault_storage) (* unauthorized *)
          else
            let tz, recipient = tz_recipient in
@@ -89,12 +89,12 @@ type wtez_params =
 type vault_found = VaultFound | VaultNotFound
 
 (** Find the address of the vault of given user, or originate it on the fly,
-  * with Tezos.self_address as the owner. *)
+  * with (Tezos.get_self_address ()) as the owner. *)
 [@inline] let find_vault_address_append (vaults: vault_map) (user: address) (ops: operation list) : vault_found * operation list * vault_map * address =
   match Big_map.find_opt user vaults with
   | Some vault_address -> VaultFound, ops, vaults, vault_address
   | None ->
-    let op, vault_address = originate_vault Tezos.self_address in
+    let op, vault_address = originate_vault (Tezos.get_self_address ()) in
     VaultNotFound, (op :: ops), (Big_map.update user (Some vault_address) vaults), vault_address
 
 (*****************************************************************************)
@@ -158,7 +158,7 @@ type vault_found = VaultFound | VaultNotFound
               let { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } = st in (* deconstruct *)
               let { to_ = to_; token_id = token_id; amount = amnt; } = x in
 
-              if fa2_is_operator (fa2_state, Tezos.sender, from_, token_id)
+              if fa2_is_operator (fa2_state, (Tezos.get_sender ()), from_, token_id)
               then
                 (* FA2-related changes *)
                 let () = if token_id = wtez_token_id then () else failwith "FA2_TOKEN_UNDEFINED" in
@@ -176,7 +176,7 @@ type vault_found = VaultFound | VaultNotFound
                     end
                   | VaultNotFound -> begin
                       (* Case 2: the vault for from_ does not exist already; make an indirect call (more expensive) *)
-                      match (Tezos.get_entrypoint_opt "%call_vault_send_tez_to_vault" Tezos.self_address : (address * tez * address) contract option) with
+                      match (Tezos.get_entrypoint_opt "%call_vault_send_tez_to_vault" (Tezos.get_self_address ()) : (address * tez * address) contract option) with
                       | Some c -> Tezos.transaction (from_vault_address, tez_of_mutez_nat amnt, to_vault_address) (0mutez) c
                       | None -> (failwith error_GetEntrypointOptFailureCallVaultSendTezToVault : operation)
                     end in
@@ -211,7 +211,7 @@ type vault_found = VaultFound | VaultNotFound
              } = op in
          (* The standard does not specify who is permitted to update operators. We restrict
             it only to the owner. *)
-         if owner <> Tezos.sender
+         if owner <> (Tezos.get_sender ())
          then (failwith "FA2_NOT_OWNER" : fa2_state)
          else
            { st  with
@@ -226,7 +226,7 @@ type vault_found = VaultFound | VaultNotFound
                operator = operator;
                token_id = token_id;
              } = op in
-         if owner <> Tezos.sender
+         if owner <> (Tezos.get_sender ())
          then (failwith "FA2_NOT_OWNER" : fa2_state)
          else
            { st  with
@@ -252,14 +252,14 @@ type vault_found = VaultFound | VaultNotFound
 
 [@inline] let deposit (state: wtez_state) (_: unit) : operation list * wtez_state =
   let { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } = state in (* deconstruct *)
-  let fa2_state = ledger_issue_tez_token (fa2_state, Tezos.sender, Tezos.amount) in
-  let total_token = add_nat_nat total_token (tez_to_mutez_nat Tezos.amount) in
-  match Big_map.find_opt Tezos.sender vaults with
+  let fa2_state = ledger_issue_tez_token (fa2_state, (Tezos.get_sender ()), (Tezos.get_amount ())) in
+  let total_token = add_nat_nat total_token (tez_to_mutez_nat (Tezos.get_amount ())) in
+  match Big_map.find_opt (Tezos.get_sender ()) vaults with
   | Some vault_address ->
     (* Case 1: The vault already exists. We can just deposit the tez into it
      * via a direct call. Cheaper than Case 2 below. *)
     let op = match (Tezos.get_entrypoint_opt "%vault_receive_tez" vault_address : unit contract option) with
-      | Some c -> Tezos.transaction () Tezos.amount c (* !!! *)
+      | Some c -> Tezos.transaction () (Tezos.get_amount ()) c (* !!! *)
       | None -> (failwith error_GetEntrypointOptFailureVaultReceiveTez : operation) in
     let state = { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } in (* reconstruct *)
     ([op], state)
@@ -267,28 +267,28 @@ type vault_found = VaultFound | VaultNotFound
     (* Case 2: The vault does not exist yet. We need to create it, and then
      * deposit the tez into it via an indirect call. This can be expensive the
      * first time. *)
-    let origination, vault_address = originate_vault Tezos.self_address in
-    let vaults = Big_map.update Tezos.sender (Some vault_address) vaults in
+    let origination, vault_address = originate_vault (Tezos.get_self_address ()) in
+    let vaults = Big_map.update (Tezos.get_sender ()) (Some vault_address) vaults in
     let state = { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } in (* reconstruct *)
-    let op = match (Tezos.get_entrypoint_opt "%call_vault_receive_tez" Tezos.self_address : (address * tez) contract option) with
-      | Some c -> Tezos.transaction (vault_address, Tezos.amount) (0mutez) c (* !!! *)
+    let op = match (Tezos.get_entrypoint_opt "%call_vault_receive_tez" (Tezos.get_self_address ()) : (address * tez) contract option) with
+      | Some c -> Tezos.transaction (vault_address, (Tezos.get_amount ())) (0mutez) c (* !!! *)
       | None -> (failwith error_GetEntrypointOptFailureCallVaultReceiveTez : operation) in
     ([origination; op], state)
 
 [@inline] let withdraw (state: wtez_state) (amnt: tez) : operation list * wtez_state =
   let { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } = state in (* deconstruct *)
   let _ = ensure_no_tez_given () in
-  let fa2_state = ledger_withdraw_tez_token (fa2_state, Tezos.sender, amnt) in
+  let fa2_state = ledger_withdraw_tez_token (fa2_state, (Tezos.get_sender ()), amnt) in
   let total_token =
     match is_nat (sub_nat_nat total_token (tez_to_mutez_nat amnt)) with
     | None -> (failwith "FA2_INSUFFICIENT_BALANCE" : nat)
     | Some tt -> tt in
-  match Big_map.find_opt Tezos.sender vaults with
+  match Big_map.find_opt (Tezos.get_sender ()) vaults with
   | Some vault_address ->
     (* Case 1: The vault already exists. We can just instruct it to send the
      * actual tez to the owner via a direct call. Cheaper than Case 2 below. *)
     let op = match (Tezos.get_entrypoint_opt "%vault_send_tez_to_contract" vault_address : (tez * address) contract option) with
-      | Some c -> Tezos.transaction (amnt, Tezos.sender) (0mutez) c
+      | Some c -> Tezos.transaction (amnt, (Tezos.get_sender ())) (0mutez) c
       | None -> (failwith error_GetEntrypointOptFailureVaultSendTezToContract : operation) in
     let state = { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } in (* reconstruct *)
     ([op], state)
@@ -296,18 +296,18 @@ type vault_found = VaultFound | VaultNotFound
     (* Case 2: The vault does not exist yet. We need to create it, and then
      * instruct it to send the actual tez to the owner via an indirect call.
      * This can be expensive the first time. *)
-    let origination, vault_address = originate_vault Tezos.self_address in
-    let vaults = Big_map.update Tezos.sender (Some vault_address) vaults in
+    let origination, vault_address = originate_vault (Tezos.get_self_address ()) in
+    let vaults = Big_map.update (Tezos.get_sender ()) (Some vault_address) vaults in
     let state = { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } in (* reconstruct *)
-    let op = match (Tezos.get_entrypoint_opt "%call_vault_send_tez_to_contract" Tezos.self_address : (address * tez * address) contract option) with
-      | Some c -> Tezos.transaction (vault_address, amnt, Tezos.sender) (0mutez) c
+    let op = match (Tezos.get_entrypoint_opt "%call_vault_send_tez_to_contract" (Tezos.get_self_address ()) : (address * tez * address) contract option) with
+      | Some c -> Tezos.transaction (vault_address, amnt, (Tezos.get_sender ())) (0mutez) c
       | None -> (failwith error_GetEntrypointOptFailureCallVaultSendTezToContract : operation) in
     ([origination; op], state)
 
 [@inline] let set_delegate (state: wtez_state) (kho: key_hash option) : operation list * wtez_state =
   let { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } = state in (* deconstruct *)
   let _ = ensure_no_tez_given () in
-  match Big_map.find_opt Tezos.sender vaults with
+  match Big_map.find_opt (Tezos.get_sender ()) vaults with
   | Some vault_address ->
     (* Case 1: The vault already exists. We can just instruct it to set its own
      * delegate via a direct call. Cheaper than Case 2 below. *)
@@ -319,10 +319,10 @@ type vault_found = VaultFound | VaultNotFound
     (* Case 2: The vault does not exist yet. We need to create it, and then
      * instruct it to set its own delegate via an indirect call. This can be
      * expensive the first time. *)
-    let origination, vault_address = originate_vault Tezos.self_address in
-    let vaults = Big_map.update Tezos.sender (Some vault_address) vaults in
+    let origination, vault_address = originate_vault (Tezos.get_self_address ()) in
+    let vaults = Big_map.update (Tezos.get_sender ()) (Some vault_address) vaults in
     let state = { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } in (* reconstruct *)
-    let op = match (Tezos.get_entrypoint_opt "%call_vault_set_delegate" Tezos.self_address : (address * key_hash option) contract option) with
+    let op = match (Tezos.get_entrypoint_opt "%call_vault_set_delegate" (Tezos.get_self_address ()) : (address * key_hash option) contract option) with
       | Some c -> Tezos.transaction (vault_address, kho) (0mutez) c
       | None -> (failwith error_GetEntrypointOptFailureCallVaultSetDelegate : operation) in
     ([origination; op], state)
@@ -332,7 +332,7 @@ type vault_found = VaultFound | VaultNotFound
 (*****************************************************************************)
 
 [@inline] let call_vault_receive_tez (state: wtez_state) (vault_address, amnt : address * tez) : operation list * wtez_state =
-  if Tezos.sender <> Tezos.self_address then
+  if (Tezos.get_sender ()) <> (Tezos.get_self_address ()) then
     (failwith error_UnauthorisedCaller : operation list * wtez_state)
   else
     let op = match (Tezos.get_entrypoint_opt "%vault_receive_tez" vault_address : unit contract option) with
@@ -341,7 +341,7 @@ type vault_found = VaultFound | VaultNotFound
     ([op], state)
 
 [@inline] let call_vault_send_tez_to_contract (state: wtez_state) (vault_address, amnt, recipient : address * tez * address) : operation list * wtez_state =
-  if Tezos.sender <> Tezos.self_address then
+  if (Tezos.get_sender ()) <> (Tezos.get_self_address ()) then
     (failwith error_UnauthorisedCaller : operation list * wtez_state)
   else
     let op = match (Tezos.get_entrypoint_opt "%vault_send_tez_to_contract" vault_address : (tez * address) contract option) with
@@ -350,7 +350,7 @@ type vault_found = VaultFound | VaultNotFound
     ([op], state)
 
 [@inline] let call_vault_send_tez_to_vault (state: wtez_state) (vault_address, amnt, recipient : address * tez * address) : operation list * wtez_state =
-  if Tezos.sender <> Tezos.self_address then
+  if (Tezos.get_sender ()) <> (Tezos.get_self_address ()) then
     (failwith error_UnauthorisedCaller : operation list * wtez_state)
   else
     let op = match (Tezos.get_entrypoint_opt "%vault_send_tez_to_vault" vault_address : (tez * address) contract option) with
@@ -359,7 +359,7 @@ type vault_found = VaultFound | VaultNotFound
     ([op], state)
 
 [@inline] let call_vault_set_delegate (state: wtez_state) (vault_address, kho : address * key_hash option) : operation list * wtez_state =
-  if Tezos.sender <> Tezos.self_address then
+  if (Tezos.get_sender ()) <> (Tezos.get_self_address ()) then
     (failwith error_UnauthorisedCaller : operation list * wtez_state)
   else
     let op = match (Tezos.get_entrypoint_opt "%vault_set_delegate" vault_address : key_hash option contract option) with

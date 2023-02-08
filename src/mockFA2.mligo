@@ -61,7 +61,7 @@ let initial_mock_fa2 () =
            (fun ((state, x): (fa2_state * fa2_transfer_destination)) ->
               let { to_ = to_; token_id = token_id; amount = amnt; } = x in
 
-              if fa2_is_operator (state, Tezos.sender, from_, token_id)
+              if fa2_is_operator (state, (Tezos.get_sender ()), from_, token_id)
               then
                 (* Update FA2 Ledger *)
                 let () = if token_id = mock_fa2_token_id then () else failwith "FA2_TOKEN_UNDEFINED" in
@@ -96,7 +96,7 @@ let initial_mock_fa2 () =
              } = op in
          (* The standard does not specify who is permitted to update operators. We restrict
             it only to the owner. *)
-         if owner <> Tezos.sender
+         if owner <> (Tezos.get_sender ())
          then (failwith "FA2_NOT_OWNER" : fa2_state)
          else
            { st  with
@@ -111,7 +111,7 @@ let initial_mock_fa2 () =
                operator = operator;
                token_id = token_id;
              } = op in
-         if owner <> Tezos.sender
+         if owner <> (Tezos.get_sender ())
          then (failwith "FA2_NOT_OWNER" : fa2_state)
          else
            { st  with
@@ -132,14 +132,14 @@ let initial_mock_fa2 () =
 
 [@inline] let mint (state: mock_fa2_state) (amnt: nat) : operation list * mock_fa2_state =
   let { fa2_state = fa2_state; total_token = total_token; metadata = metadata; } = state in (* deconstruct *)
-  let fa2_state = ledger_issue (fa2_state, mock_fa2_token_id, Tezos.sender, amnt) in
+  let fa2_state = ledger_issue (fa2_state, mock_fa2_token_id, (Tezos.get_sender ()), amnt) in
   let total_token = add_nat_nat total_token amnt in
   let state = { fa2_state = fa2_state; total_token = total_token; metadata = metadata; } in (* reconstruct *)
   (([]: operation list), state)
 
 [@inline] let redeem (state: mock_fa2_state) (amnt: nat) : operation list * mock_fa2_state =
   let { fa2_state = fa2_state; total_token = total_token; metadata = metadata; } = state in (* deconstruct *)
-  let fa2_state = ledger_withdraw (fa2_state, mock_fa2_token_id, Tezos.sender, amnt) in
+  let fa2_state = ledger_withdraw (fa2_state, mock_fa2_token_id, (Tezos.get_sender ()), amnt) in
   let total_token =
     match is_nat (sub_nat_nat total_token amnt) with
     | None -> (failwith "FA2_INSUFFICIENT_BALANCE" : nat)

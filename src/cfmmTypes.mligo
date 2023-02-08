@@ -1,10 +1,3 @@
-(* open Ctok *)
-(* open Kit *)
-(* open Lqt *)
-(* open Common *)
-
-(* [@@@coverage off] *)
-
 type cfmm =
   { ctok: ctok;
     kit: kit;
@@ -12,9 +5,6 @@ type cfmm =
     kit_in_ctok_in_prev_block: ratio (* [@printer pp_ratio] *);
     last_level: nat;
   }
-(* [@@deriving show] *)
-
-(* [@@@coverage on] *)
 
 (** The initial state of the cfmm contract. We always start with the lowest
     denomination of kit, ctok, and liquidity tokens (effectively setting the

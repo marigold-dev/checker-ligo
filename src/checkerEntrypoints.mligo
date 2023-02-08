@@ -309,30 +309,3 @@ let wrapper_view_is_operator (param, wrapper: (address * (address * fa2_token_id
   match wrapper.deployment_state with
   | Sealed checker -> view_is_operator (param, checker)
   | Unsealed _ -> (failwith error_ContractNotDeployed: bool)
-
-(* BEGIN_OCAML   
-let runLazyParams (params: lazy_params) (checker: checker): operation list * checker =
-  match params with
-  | Touch a -> entrypoint_touch (checker, a)
-  | Create_burrow a -> entrypoint_create_burrow (checker, a)
-  | Deposit_collateral a -> entrypoint_deposit_collateral (checker, a)
-  | Withdraw_collateral a -> entrypoint_withdraw_collateral (checker, a)
-  | Mint_kit a -> entrypoint_mint_kit (checker, a)
-  | Burn_kit a -> entrypoint_burn_kit (checker, a)
-  | Activate_burrow a -> entrypoint_activate_burrow (checker, a)
-  | Deactivate_burrow a -> entrypoint_deactivate_burrow (checker, a)
-  | Mark_for_liquidation a -> entrypoint_mark_for_liquidation (checker, a)
-  | Touch_liquidation_slices a -> entrypoint_touch_liquidation_slices (checker, a)
-  | Cancel_liquidation_slice a -> entrypoint_cancel_liquidation_slice (checker, a)
-  | Touch_burrow a -> entrypoint_touch_burrow (checker, a)
-  | Set_burrow_delegate a -> entrypoint_set_burrow_delegate (checker, a)
-  | Buy_kit a -> entrypoint_buy_kit (checker, a)
-  | Sell_kit a -> entrypoint_sell_kit (checker, a)
-  | Add_liquidity a -> entrypoint_add_liquidity (checker, a)
-  | Remove_liquidity a -> entrypoint_remove_liquidity (checker, a)
-  | Liquidation_auction_place_bid a -> entrypoint_liquidation_auction_place_bid (checker, a)
-  | Liquidation_auction_claim_win a -> entrypoint_liquidation_auction_claim_win (checker, a)
-  | Receive_price a -> entrypoint_receive_price (checker, a)
-  | Receive_ctez_marginal_price a -> entrypoint_receive_ctez_marginal_price (checker, a)
-  | Update_operators a -> entrypoint_update_operators (checker, a)
-   END_OCAML *)
