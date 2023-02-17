@@ -1,61 +1,57 @@
-(* open Kit *)
-(* open FixedPoint *)
-(* open Common *)
-(* open Constants *)
-(* open DriftDerivative *)
-(* open TargetCalculation *)
+#import "./fixedPoint.mligo" "Fixedpoint"
+#import "./kit.mligo" "Kit"
+#import "./common.mligo" "Common"
+#import "./constants.mligo" "Constants"
+#include "./driftDerivative.mligo"
+#include "./targetCalculation.mligo"
 
-(* [@@@coverage off] *)
-
-type parameters =
-  { q : fixedpoint; (* 1/kit, really *)
-    index: fixedpoint;
-    protected_index: fixedpoint;
-    target: fixedpoint;
-    drift_derivative: fixedpoint;
-    drift: fixedpoint;
-    burrow_fee_index: fixedpoint;
-    imbalance_index: fixedpoint;
-    outstanding_kit: kit;
-    circulating_kit: kit;
+type t =
+  { q : Fixedpoint.t; (* 1/kit, really *)
+    index: Fixedpoint.t;
+    protected_index: Fixedpoint.t;
+    target: Fixedpoint.t;
+    drift_derivative: Fixedpoint.t;
+    drift: Fixedpoint.t;
+    burrow_fee_index: Fixedpoint.t;
+    imbalance_index: Fixedpoint.t;
+    outstanding_kit: Kit.kit;
+    circulating_kit: Kit.kit;
     last_touched: timestamp;
   }
-(* [@@deriving show] *)
-
-(* [@@@coverage on] *)
+type parameters = t
 
 (** Initial state of the parameters. *)
 let initial_parameters : parameters =
-  { q = fixedpoint_one;
-    index = fixedpoint_one;
-    protected_index = fixedpoint_one;
-    target = fixedpoint_one;
-    drift = fixedpoint_zero;
-    drift_derivative = fixedpoint_zero;
-    burrow_fee_index = fixedpoint_one;
-    imbalance_index = fixedpoint_one;
-    outstanding_kit = kit_zero;
-    circulating_kit = kit_zero;
+  { q = Fixedpoint.fixedpoint_one;
+    index = Fixedpoint.fixedpoint_one;
+    protected_index = Fixedpoint.fixedpoint_one;
+    target = Fixedpoint.fixedpoint_one;
+    drift = Fixedpoint.fixedpoint_zero;
+    drift_derivative = Fixedpoint.fixedpoint_zero;
+    burrow_fee_index = Fixedpoint.fixedpoint_one;
+    imbalance_index = Fixedpoint.fixedpoint_one;
+    outstanding_kit = Kit.kit_zero;
+    circulating_kit = Kit.kit_zero;
     last_touched = Tezos.get_now ();
   }
 
 (** Compute the current minting index (in tok). To get tok/kit must multiply with q. *)
-[@inline] let tz_minting (p: parameters) : fixedpoint = fixedpoint_max p.index p.protected_index
+[@inline] let tz_minting (p: parameters) : Fixedpoint.t = Fixedpoint.fixedpoint_max p.index p.protected_index
 
 (** Compute the current liquidation index (in tok). To get tok/kit must multiply with q. *)
-[@inline] let tz_liquidation (p: parameters) : fixedpoint = fixedpoint_min p.index p.protected_index
+[@inline] let tz_liquidation (p: parameters) : Fixedpoint.t = Fixedpoint.fixedpoint_min p.index p.protected_index
 
 (** Current minting price (in tok/kit). *)
-let minting_price (p: parameters) : ratio =
-  make_ratio
-    (mul_int_int (fixedpoint_to_raw p.q) (fixedpoint_to_raw (tz_minting p)))
-    (mul_int_int fixedpoint_scaling_factor_int fixedpoint_scaling_factor_int)
+let minting_price (p: parameters) : Common.ratio =
+  Common.make_ratio
+    ((Fixedpoint.fixedpoint_to_raw p.q) * (Fixedpoint.fixedpoint_to_raw (tz_minting p)))
+    (Fixedpoint.fixedpoint_scaling_factor_int * Fixedpoint.fixedpoint_scaling_factor_int)
 
 (** Current liquidation price (in tok/kit). *)
-let liquidation_price (p: parameters) : ratio =
-  make_ratio
-    (mul_int_int (fixedpoint_to_raw p.q) (fixedpoint_to_raw (tz_liquidation p)))
-    (mul_int_int fixedpoint_scaling_factor_int fixedpoint_scaling_factor_int)
+let liquidation_price (p: parameters) : Common.ratio =
+  Common.make_ratio
+    ((Fixedpoint.fixedpoint_to_raw p.q) * (Fixedpoint.fixedpoint_to_raw (tz_liquidation p)))
+    (Fixedpoint.fixedpoint_scaling_factor_int * Fixedpoint.fixedpoint_scaling_factor_int)
 
 (** Given the amount of kit necessary to close all existing burrows
     (outstanding) and the amount of kit that is currently in circulation
@@ -82,31 +78,34 @@ let liquidation_price (p: parameters) : ratio =
         Well, outstanding is "infinitely" greater than circulating so let's
         saturate the imbalance to -imbalance_limit.
 *)
-[@inline] let compute_imbalance (outstanding: kit) (circulating: kit) : ratio =
-  let outstanding = kit_to_denomination_nat outstanding in
-  let circulating = kit_to_denomination_nat circulating in
-  let { num = num_il; den = den_il; } = imbalance_limit in
+[@inline] let compute_imbalance (outstanding: Kit.kit) (circulating: Kit.kit) : Common.ratio =
+  let outstanding = Kit.kit_to_denomination_nat outstanding in
+  let circulating = Kit.kit_to_denomination_nat circulating in
+  let { num = num_il; den = den_il; } = Constants.imbalance_limit in
 
-  if (eq_nat_nat circulating (0n))
-  && (eq_nat_nat outstanding (0n)) then
-    zero_ratio
-  else if (eq_nat_nat circulating (0n))
-       && (ne_nat_nat outstanding (0n)) then
-    make_ratio (neg_int num_il) den_il
+  if (circulating = 0n)
+  && (outstanding = 0n) then
+    Common.zero_ratio
+  else if (circulating = 0n)
+       && (outstanding <> 0n) then
+    Common.make_ratio (Common.neg_int num_il) den_il
   else
-    let { num = num_isf; den = den_isf; } = imbalance_scaling_factor in
-    let denominator = mul_int_nat den_isf circulating in
+    let { num = num_isf; den = den_isf; } = Constants.imbalance_scaling_factor in
+    let denominator = den_isf * circulating in
 
-    if geq_nat_nat circulating outstanding then
-      make_ratio
-        (min_int (mul_int_int (mul_int_int num_isf (sub_nat_nat circulating outstanding)) den_il) (mul_int_int num_il denominator))
-        (mul_int_int den_il denominator)
+    if circulating >= outstanding then
+      Common.make_ratio
+        (Common.min_int ((num_isf * (circulating - outstanding)) * den_il) (num_il * denominator))
+        (den_il * denominator)
     else (* circulating < outstanding *)
       begin
 
-        make_ratio
-          (neg_int (min_int (mul_int_int (mul_int_int num_isf (sub_nat_nat outstanding circulating)) den_il) (mul_int_int num_il denominator)))
-          (mul_int_int den_il denominator)
+        Common.make_ratio
+          (Common.neg_int
+            (Common.min_int
+              ((num_isf * (outstanding - circulating)) * den_il)
+              (num_il * denominator)))
+          (den_il * denominator)
       end
 
 (** Compute the current adjustment index. Basically this is the product of
@@ -115,14 +114,13 @@ let liquidation_price (p: parameters) : ratio =
       adjustment_index_i = FLOOR (burrow_fee_index_i * imabalance_index_i)
     ]}
 *)
-let compute_adjustment_index (p: parameters) : fixedpoint =
-  fixedpoint_of_raw
-    (fdiv_int_int
-       (mul_int_int
-          (fixedpoint_to_raw p.burrow_fee_index)
-          (fixedpoint_to_raw p.imbalance_index)
-       )
-       fixedpoint_scaling_factor_int
+let compute_adjustment_index (p: parameters) : Fixedpoint.t =
+  Fixedpoint.fixedpoint_of_raw
+    (Common.fdiv_int_int
+      ((Fixedpoint.fixedpoint_to_raw p.burrow_fee_index)
+       *
+       (Fixedpoint.fixedpoint_to_raw p.imbalance_index))
+       Fixedpoint.fixedpoint_scaling_factor_int
     )
 
 (** Calculate the current burrow fee index based on the last index and the
@@ -132,17 +130,14 @@ let compute_adjustment_index (p: parameters) : fixedpoint =
     ]}
     Keep in mind that this formula means that the burrow fee index is
     ever-increasing. *)
-[@inline] let compute_current_burrow_fee_index (last_burrow_fee_index: fixedpoint) (duration_in_seconds: int) : fixedpoint =
-  let { num = num; den = den; } = burrow_fee_percentage in
-  let denom = mul_int_int den seconds_in_a_year in
-  fixedpoint_of_raw
-    (fdiv_int_int
-       (mul_int_int
-          (fixedpoint_to_raw last_burrow_fee_index)
-          (add_int_int
-             denom
-             (mul_int_int num duration_in_seconds)
-          )
+[@inline] let compute_current_burrow_fee_index (last_burrow_fee_index: Fixedpoint.t) (duration_in_seconds: int) : Fixedpoint.t =
+  let { num = num; den = den; } = Constants.burrow_fee_percentage in
+  let denom = den * Constants.seconds_in_a_year in
+  Fixedpoint.fixedpoint_of_raw
+    (Common.fdiv_int_int
+       ((Fixedpoint.fixedpoint_to_raw last_burrow_fee_index)
+          *
+          (denom + (num * duration_in_seconds))
        )
        denom
     )
@@ -156,34 +151,40 @@ let compute_adjustment_index (p: parameters) : fixedpoint =
       )
     ]}
 *)
-[@inline] let compute_current_protected_index (last_protected_index: fixedpoint) (current_index: fixedpoint) (duration_in_seconds: int) : fixedpoint =
+[@inline] let compute_current_protected_index (last_protected_index: Fixedpoint.t) (current_index: Fixedpoint.t) (duration_in_seconds: int) : Fixedpoint.t =
 
 
-  fixedpoint_of_ratio_floor
-    (make_ratio
-       (clamp_int
-          (mul_int_int
-             (fixedpoint_to_raw current_index)
-             protected_index_inverse_epsilon
+  Fixedpoint.fixedpoint_of_ratio_floor
+    (Common.make_ratio
+       (Common.clamp_int
+          (
+             (Fixedpoint.fixedpoint_to_raw current_index)
+             *
+             Constants.protected_index_inverse_epsilon
           )
-          (mul_int_int
-             (fixedpoint_to_raw last_protected_index)
-             (sub_int_int
-                protected_index_inverse_epsilon
+          (
+             (Fixedpoint.fixedpoint_to_raw last_protected_index)
+             *
+             (
+                Constants.protected_index_inverse_epsilon
+                -
                 duration_in_seconds
              )
           )
-          (mul_int_int
-             (fixedpoint_to_raw last_protected_index)
-             (add_int_int
-                protected_index_inverse_epsilon
+          (
+             (Fixedpoint.fixedpoint_to_raw last_protected_index)
+             *
+             (
+                Constants.protected_index_inverse_epsilon
+                +
                 duration_in_seconds
              )
           )
        )
-       (mul_int_int
-          protected_index_inverse_epsilon
-          fixedpoint_scaling_factor_int
+       (
+          Constants.protected_index_inverse_epsilon
+          *
+          Fixedpoint.fixedpoint_scaling_factor_int
        )
     )
 
@@ -194,13 +195,15 @@ let compute_adjustment_index (p: parameters) : fixedpoint =
       drift_{i+1} = FLOOR (drift_i + (1/2) * (drift'_i + drift'_{i+1}) * (t_{i+1} - t_i))
     ]}
 *)
-[@inline] let compute_current_drift (last_drift: fixedpoint) (last_drift_derivative: fixedpoint) (current_drift_derivative: fixedpoint) (duration_in_seconds: int) : fixedpoint =
-  fixedpoint_of_raw
-    (fdiv_int_int
-       (add_int_int
-          (mul_int_int ((2)) (fixedpoint_to_raw last_drift))
-          (mul_int_int
-             (fixedpoint_to_raw (fixedpoint_add last_drift_derivative current_drift_derivative))
+[@inline] let compute_current_drift (last_drift: Fixedpoint.t) (last_drift_derivative: Fixedpoint.t) (current_drift_derivative: Fixedpoint.t) (duration_in_seconds: int) : Fixedpoint.t =
+  Fixedpoint.fixedpoint_of_raw
+    (Common.fdiv_int_int
+       (
+          (2 * (Fixedpoint.fixedpoint_to_raw last_drift))
+          +
+          (
+             (Fixedpoint.fixedpoint_to_raw (Fixedpoint.fixedpoint_add last_drift_derivative current_drift_derivative))
+             *
              duration_in_seconds
           )
        )
@@ -215,35 +218,26 @@ let compute_adjustment_index (p: parameters) : fixedpoint =
     ]}
     where [EXP(X) = X+1].
 *)
-[@inline] let compute_current_q (last_q: fixedpoint) (last_drift: fixedpoint) (last_drift_derivative: fixedpoint) (current_drift_derivative: fixedpoint) (duration_in_seconds: int) : fixedpoint =
+[@inline] let compute_current_q (last_q: Fixedpoint.t) (last_drift: Fixedpoint.t) (last_drift_derivative: Fixedpoint.t) (current_drift_derivative: Fixedpoint.t) (duration_in_seconds: int) : Fixedpoint.t =
+(* TODO: make this legible *)
   let six_sf =
-    mul_int_int
-      ((6))
-      fixedpoint_scaling_factor_int in
-  fixedpoint_of_raw
-    (fdiv_int_int
-       (mul_int_int
-          (fixedpoint_to_raw last_q)
-          (add_int_int
-             (mul_int_int
-                (add_int_int
-                   (mul_int_int
-                      ((6))
-                      (fixedpoint_to_raw last_drift)
-                   )
-                   (mul_int_int
-                      (add_int_int
-                         (mul_int_int
-                            ((2))
-                            (fixedpoint_to_raw last_drift_derivative)
-                         )
-                         (fixedpoint_to_raw current_drift_derivative)
-                      )
-                      duration_in_seconds
-                   )
-                )
-                duration_in_seconds
-             )
+      6
+      *
+      Fixedpoint.fixedpoint_scaling_factor_int in
+  Fixedpoint.fixedpoint_of_raw
+    (Common.fdiv_int_int
+       (
+          (Fixedpoint.fixedpoint_to_raw last_q)
+          *
+          (
+             (((6 * (Fixedpoint.fixedpoint_to_raw last_drift))
+             + (((2 * (Fixedpoint.fixedpoint_to_raw last_drift_derivative)) + (Fixedpoint.fixedpoint_to_raw
+             current_drift_derivative))
+                   * duration_in_seconds
+                   ))
+                *
+                duration_in_seconds)
+            +
              six_sf
           )
        )
@@ -269,22 +263,18 @@ let compute_adjustment_index (p: parameters) : fixedpoint =
     [imbalance_index_{i+1} < 0]). This can make calculations below fail. All of
     this of course refers to the possibility of nobody touching checker for
     over 20 years, which I guess should be practically impossible. *)
-[@inline] let compute_current_imbalance_index (last_outstanding_kit: kit) (last_circulating_kit: kit) (last_imbalance_index: fixedpoint) (duration_in_seconds: int) : fixedpoint =
+[@inline] let compute_current_imbalance_index (last_outstanding_kit: Kit.kit) (last_circulating_kit: Kit.kit) (last_imbalance_index: Fixedpoint.t) (duration_in_seconds: int) : Fixedpoint.t =
   let { num = num; den = den; } =
     compute_imbalance
       last_outstanding_kit (* burrowed *)
       last_circulating_kit (* circulating *) in
-  let denom = mul_int_int den seconds_in_a_year in
-  fixedpoint_of_raw
-    (fdiv_int_int
-       (mul_int_int
-          (fixedpoint_to_raw last_imbalance_index)
-          (add_int_int
-             denom
-             (mul_int_int num duration_in_seconds)
-          )
-       )
-       denom
+  let denom = den * Constants.seconds_in_a_year in
+  Fixedpoint.fixedpoint_of_raw
+    (Common.fdiv_int_int
+       (
+          (Fixedpoint.fixedpoint_to_raw last_imbalance_index)
+          *
+          ( denom + (num * duration_in_seconds))) denom
     )
 
 (** Compute current outstanding kit, taking burrow fees into account:
@@ -294,10 +284,10 @@ let compute_adjustment_index (p: parameters) : fixedpoint =
       )
     ]}
 *)
-[@inline] let compute_current_outstanding_with_fees (last_outstanding_kit: kit) (last_burrow_fee_index: fixedpoint) (current_burrow_fee_index: fixedpoint) : kit =
-  kit_of_fraction_floor
-    (mul_nat_int (kit_to_denomination_nat last_outstanding_kit) (fixedpoint_to_raw current_burrow_fee_index))
-    (mul_int_int kit_scaling_factor_int (fixedpoint_to_raw last_burrow_fee_index))
+[@inline] let compute_current_outstanding_with_fees (last_outstanding_kit: Kit.kit) (last_burrow_fee_index: Fixedpoint.t) (current_burrow_fee_index: Fixedpoint.t) : Kit.kit =
+  Kit.kit_of_fraction_floor
+    ((Kit.kit_to_denomination_nat last_outstanding_kit) * (Fixedpoint.fixedpoint_to_raw current_burrow_fee_index))
+    (Kit.kit_scaling_factor_int * (Fixedpoint.fixedpoint_to_raw last_burrow_fee_index))
 
 (** Compute current outstanding kit, given that the burrow fees have already
     been added (that is, compute the effect of the imbalance index):
@@ -307,19 +297,19 @@ let compute_adjustment_index (p: parameters) : fixedpoint =
       )
     ]}
 *)
-[@inline] let compute_current_outstanding_kit (current_outstanding_with_fees: kit) (last_imbalance_index: fixedpoint) (current_imbalance_index: fixedpoint) : kit =
-  kit_of_fraction_floor
-    (mul_nat_int (kit_to_denomination_nat current_outstanding_with_fees) (fixedpoint_to_raw current_imbalance_index))
-    (mul_int_int kit_scaling_factor_int (fixedpoint_to_raw last_imbalance_index))
+[@inline] let compute_current_outstanding_kit (current_outstanding_with_fees: Kit.kit) (last_imbalance_index: Fixedpoint.t) (current_imbalance_index: Fixedpoint.t) : Kit.kit =
+  Kit.kit_of_fraction_floor
+    ((Kit.kit_to_denomination_nat current_outstanding_with_fees) * (Fixedpoint.fixedpoint_to_raw current_imbalance_index))
+    (Kit.kit_scaling_factor_int * (Fixedpoint.fixedpoint_to_raw last_imbalance_index))
 
 (** Update the checker's parameters, given (a) the current timestamp
     (Tezos.now), (b) the current index (the median of the oracles right now),
     and (c) the current price of kit in tok. *)
 let parameters_touch
-    (current_index: fixedpoint)
-    (current_kit_in_tok: ratio)
+    (current_index: Fixedpoint.t)
+    (current_kit_in_tok: Common.ratio)
     (parameters: parameters)
-  : kit * parameters =
+  : Kit.kit * parameters =
   let
     { q = parameters_q;
       index = _parameters_index; (* unused. Always set to the new one. *)
@@ -336,7 +326,7 @@ let parameters_touch
 
   (* Calculate the number of seconds elapsed. *)
   let now = Tezos.get_now () in
-  let duration_in_seconds = sub_timestamp_timestamp now parameters_last_touched in
+  let duration_in_seconds = now - parameters_last_touched in
 
 
   (* Update the indices *)
@@ -358,11 +348,11 @@ let parameters_touch
     compute_current_target current_q current_index current_kit_in_tok in
   let current_outstanding_with_fees =
     compute_current_outstanding_with_fees parameters_outstanding_kit parameters_burrow_fee_index current_burrow_fee_index in
-  let accrual_to_cfmm = kit_sub current_outstanding_with_fees parameters_outstanding_kit in (* NOTE: can this be negative? *)
+  let accrual_to_cfmm = Kit.kit_sub current_outstanding_with_fees parameters_outstanding_kit in (* NOTE: can this be negative? *)
   let current_outstanding_kit =
     compute_current_outstanding_kit current_outstanding_with_fees parameters_imbalance_index current_imbalance_index in
   let current_circulating_kit =
-    kit_add parameters_circulating_kit accrual_to_cfmm in
+    Kit.kit_add parameters_circulating_kit accrual_to_cfmm in
 
   (* Update all values *)
   ( accrual_to_cfmm
@@ -382,28 +372,28 @@ let parameters_touch
   )
 
 (** Add some kit to the total amount of kit in circulation. *)
-[@inline] let add_circulating_kit (parameters: parameters) (kit: kit) : parameters =
-  { parameters with circulating_kit = kit_add parameters.circulating_kit kit; }
+[@inline] let add_circulating_kit (parameters: parameters) (kit: Kit.kit) : parameters =
+  { parameters with circulating_kit = Kit.kit_add parameters.circulating_kit kit; }
 
 (** Remove some kit from the total amount of kit in circulation. *)
-[@inline] let remove_circulating_kit (parameters: parameters) (kit: kit) : parameters =
+[@inline] let remove_circulating_kit (parameters: parameters) (kit: Kit.kit) : parameters =
 
-  { parameters with circulating_kit = kit_sub parameters.circulating_kit kit; }
+  { parameters with circulating_kit = Kit.kit_sub parameters.circulating_kit kit; }
 
 (** Add some kit to the total amount of kit required to close all burrows and
     the kit in circulation. This is the case when a burrow owner mints kit. *)
-[@inline] let add_outstanding_and_circulating_kit (parameters: parameters) (kit: kit) : parameters =
+[@inline] let add_outstanding_and_circulating_kit (parameters: parameters) (kit: Kit.kit) : parameters =
   { parameters with
-    outstanding_kit = kit_add parameters.outstanding_kit kit;
-    circulating_kit = kit_add parameters.circulating_kit kit;
+    outstanding_kit = Kit.kit_add parameters.outstanding_kit kit;
+    circulating_kit = Kit.kit_add parameters.circulating_kit kit;
   }
 
 (** Remove some kit from the total amount of kit required to close all burrows
     and the kit in circulation. This is the case when a burrow owner burns kit. *)
 [@inline] let remove_outstanding_and_circulating_kit
     (parameters: parameters)
-    (outstanding_to_remove: kit)
-    (circulating_to_remove: kit)
+    (outstanding_to_remove: Kit.kit)
+    (circulating_to_remove: Kit.kit)
   : parameters =
 
 
@@ -418,8 +408,8 @@ let parameters_touch
    * and the approximation decreases (however, this catch-all could hide other
    * bugs). *)
   let outstanding_to_remove =
-    kit_min parameters.outstanding_kit outstanding_to_remove in
+    Kit.kit_min parameters.outstanding_kit outstanding_to_remove in
   { parameters with
-    outstanding_kit = kit_sub parameters.outstanding_kit outstanding_to_remove;
-    circulating_kit = kit_sub parameters.circulating_kit circulating_to_remove;
+    outstanding_kit = Kit.kit_sub parameters.outstanding_kit outstanding_to_remove;
+    circulating_kit = Kit.kit_sub parameters.circulating_kit circulating_to_remove;
   }

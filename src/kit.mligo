@@ -1,17 +1,22 @@
-type kit = nat
+#include "./error.mligo"
+#import "./common.mligo" "Common"
+#import "./fixedPoint.mligo" "Fixedpoint"
+
+type t = nat
+type kit = t
 
 [@inline] let kit_scaling_factor_int = (1000000)
 [@inline] let kit_scaling_factor_nat = 1000000n
 
 (* Basic arithmetic operations. *)
-[@inline] let kit_add (x: kit) (y: kit) = add_nat_nat x y
+[@inline] let kit_add (x: kit) (y: kit) = x + y
 let kit_sub (x: kit) (y: kit) =
-  match is_nat (sub_nat_nat x y) with
+  match is_nat (x - y) with
   | Some n -> n
   | None -> (failwith internalError_KitSubNegative : kit)
 
-[@inline] let kit_min (x: kit) (y: kit) = if leq_nat_nat x y then x else y
-[@inline] let kit_max (x: kit) (y: kit) = if geq_nat_nat x y then x else y
+[@inline] let kit_min (x: kit) (y: kit) = if x <= y then x else y
+[@inline] let kit_max (x: kit) (y: kit) = if x >= y then x else y
 
 [@inline] let kit_zero = 0n
 [@inline] let kit_one = kit_scaling_factor_nat
@@ -23,25 +28,25 @@ let kit_sub (x: kit) (y: kit) =
 
 let kit_of_fraction_ceil (x_num: int) (x_den: int) : kit =
 
-  if lt_int_int x_num ((0))
+  if x_num < 0
   then (failwith internalError_KitOfFractionCeilNegative : kit)
-  else abs (cdiv_int_int (mul_int_int x_num kit_scaling_factor_int) x_den)
+  else abs (Common.cdiv_int_int (x_num * kit_scaling_factor_int) x_den)
 
 let kit_of_fraction_floor (x_num: int) (x_den: int) : kit =
 
-  if lt_int_int x_num ((0))
+  if x_num < 0
   then (failwith internalError_KitOfFractionFloorNegative : kit)
-  else abs (fdiv_int_int (mul_int_int x_num kit_scaling_factor_int) x_den)
+  else abs (Common.fdiv_int_int (x_num * kit_scaling_factor_int) x_den)
 
-[@inline] let kit_scale (amnt: kit) (fp: fixedpoint) =
+[@inline] let kit_scale (amnt: kit) (fp: Fixedpoint.t) =
   kit_of_fraction_floor
-    (mul_int_nat (fixedpoint_to_raw fp) amnt)
-    (mul_int_int fixedpoint_scaling_factor_int kit_scaling_factor_int)
+    ((Fixedpoint.fixedpoint_to_raw fp) * amnt)
+    (Fixedpoint.fixedpoint_scaling_factor_int * kit_scaling_factor_int)
 
-[@inline] let geq_kit_kit = geq_nat_nat
-[@inline] let leq_kit_kit = leq_nat_nat
+[@inline] let geq_kit_kit (x:t) (y:t) = x >= y
+[@inline] let leq_kit_kit (x:t) (y:t) = x <= y
 
-[@inline] let lt_kit_kit = lt_nat_nat
-[@inline] let gt_kit_kit = gt_nat_nat
+[@inline] let lt_kit_kit (x:nat) (y:nat) = x > y
+[@inline] let gt_kit_kit (x:nat) (y:nat) = x < y
 
-[@inline] let eq_kit_kit = eq_nat_nat
+[@inline] let eq_kit_kit (x:t) (y:t) = x = y

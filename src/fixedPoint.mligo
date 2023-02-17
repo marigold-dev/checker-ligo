@@ -1,8 +1,10 @@
 (* open Common *)
+#include "./common.mligo"
 
-type fixedpoint = int
+type t = int
+type fixedpoint = t
 
-let fixedpoint_scaling_factor_int = (18446744073709551616)  (* 2 (scaling_base) ^ 64 (scaling_exponent) *)
+let fixedpoint_scaling_factor_int = 18446744073709551616  (* 2 (scaling_base) ^ 64 (scaling_exponent) *)
 let fixedpoint_scaling_factor_nat = 18446744073709551616n (* 2 (scaling_base) ^ 64 (scaling_exponent) *)
 
 (* Predefined values. *)
@@ -10,29 +12,27 @@ let fixedpoint_scaling_factor_nat = 18446744073709551616n (* 2 (scaling_base) ^ 
 [@inline] let fixedpoint_one = fixedpoint_scaling_factor_int
 
 (* Arithmetic operations. *)
-[@inline] let fixedpoint_add (x: fixedpoint) (y: fixedpoint) = add_int_int x y
-[@inline] let fixedpoint_sub (x: fixedpoint) (y: fixedpoint) = sub_int_int x y
+[@inline] let fixedpoint_add (x: fixedpoint) (y: fixedpoint) = x + y
+[@inline] let fixedpoint_sub (x: fixedpoint) (y: fixedpoint) = x - y
 
 let fixedpoint_pow (x: fixedpoint) (y: nat) =
-  if eq_nat_nat y (0n) then
+  if y = (0n) then
     fixedpoint_one
   else
-    div_int_int
-      (pow_int_nat x y)
-      (pow_int_nat fixedpoint_scaling_factor_int (abs (sub_nat_nat y (1n))))
+      (pow_int_nat x y) / (pow_int_nat fixedpoint_scaling_factor_int (abs (y - 1n)))
 
 [@inline] let fixedpoint_min (x: fixedpoint) (y: fixedpoint) = min_int x y
 [@inline] let fixedpoint_max (x: fixedpoint) (y: fixedpoint) = max_int x y
 
 (* Conversions to/from other types. *)
-let fixedpoint_of_ratio_ceil  (amnt: ratio) = cdiv_int_int (mul_int_int amnt.num fixedpoint_scaling_factor_int) amnt.den
-let fixedpoint_of_ratio_floor (amnt: ratio) = fdiv_int_int (mul_int_int amnt.num fixedpoint_scaling_factor_int) amnt.den
+let fixedpoint_of_ratio_ceil  (amnt: ratio) = cdiv_int_int (amnt.num * fixedpoint_scaling_factor_int) amnt.den
+let fixedpoint_of_ratio_floor (amnt: ratio) = fdiv_int_int (amnt.num * fixedpoint_scaling_factor_int) amnt.den
 (* George: do we need flooring-division or truncating-division? more thought is needed *)
 
 [@inline] let fixedpoint_of_raw (amnt: int) : fixedpoint = amnt
 [@inline] let fixedpoint_to_raw (amnt: fixedpoint) : int = amnt
 
-(* BEGIN_OCAML   
+(* BEGIN_OCAML
 (* [@@@coverage off] *)
 let fixedpoint_scaling_exponent = 64
 

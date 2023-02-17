@@ -1,6 +1,6 @@
-(* open Ptr *)
-(* open Kit *)
-(* open Tok *)
+#include "./ptr.mligo"
+#include "./kit.mligo"
+#include "./tok.mligo"
 
 (* [@@@coverage off] *)
 

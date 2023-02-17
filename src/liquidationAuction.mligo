@@ -1,3 +1,5 @@
+#include "./liquidationAuctionPrimitiveTypes.mligo"
+
 (*
 Utku: Lifecycle of liquidation slices.
 
