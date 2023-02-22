@@ -5,14 +5,16 @@ import json
 from typing import List, Optional, Tuple
 
 FA2_VIEWS_PAT = (
-    r"let view_(\S+) *\([^:]*: *(.*) \* mock_fa2_state\) *: *([^=]*)"
+    r"let view_(\S+) *\([^:]*: *(.*) \* (mock_fa2_state)\) *: *([^=]*)"
 )
-WTEZ_VIEWS_PAT = r"let view_(\S+) *\([^:]*: *(.*) \* wtez_state\) *: *([^=]*)"
+WTEZ_VIEWS_PAT = (
+    r"let view_(\S+) *\([^:]*: *(.*) \* (wtez_state)\) *: *([^=]*)"
+)
 WCTEZ_VIEWS_PAT = (
-    r"let view_(\S+) *\([^:]*: *(.*) \* wctez_state\) *: *([^=]*)"
+    r"let view_(\S+) *\([^:]*: *(.*) \* (wctez_state)\) *: *([^=]*)"
 )
 CHECKER_VIEWS_PAT = (
-    r"let wrapper_view_(\S+) *\([^:]*: *(.*) \* wrapper\) *: *([^=]*)"
+    r"let wrapper_view_(\S+) *\([^:]*: *(.*) \* (wrapper)\) *: *([^=]*)"
 )
 CHECKER_ENTRYPOINTS_PAT = r"let lazy_id_(\S+) *= \(*(\d*)\)"
 
@@ -23,9 +25,9 @@ def find_views(
     with open(src_file) as f:
         code = f.read()
         raw_views = re.findall(view_pattern, code)
-        return [
-            (name, arg_type.strip(), ret_type.strip())
-            for (name, arg_type, ret_type) in raw_views
+        return [  # We keep the name of the state type for later
+            (name, arg_type.strip(), ret_type.strip(), state_type.strip())
+            for (name, arg_type, state_type, ret_type) in raw_views
         ]
 
 
@@ -93,20 +95,70 @@ def ligo_compile(*, src_file: Path, entrypoint: str, out_file: Path):
         f.write(res.stdout)
 
 
-def compile_views(*, main_file: Path, views_file: Path, pattern: str,
-                  prefix="view_"):
+def parallel_compile_types(
+    *, src_file: Path, types: List[str], prefix="_view"
+):
+    # We use lambdas to compile types because tuples give inconsistent results
+    types = "(" + "->".join([f"({t})" for t in types]) + ")"
+
+    print("*** Compiling types: ", types)
+    raws = ligo_compile_type(src_file=src_file, typ=types)
+
+    print(raws)
+    args = []
+    while raws["prim"] == "lambda":
+        args.append(raws["args"][0])
+        raws = raws["args"][1]
+    args.append(raws)
+
+    return args
+
+
+def parallel_compile_views(src_file: Path, views, prefix="_view"):
+    rows = "; ".join(
+        [f"x{i} = ({prefix + v[0]})" for (i, v) in enumerate(views)]
+    )
+    types = "; ".join(
+        [
+            f"x{i} : (({v[1]} * {v[3]}) -> {v[2]})"
+            for (i, v) in enumerate(views)
+        ]
+    )
+    record_expr = "( { %(rows)s } : [@layout:comb] { %(types)s } )" % {
+        "rows": rows,
+        "types": types,
+    }
+
+    print("*** Compiling views: ", record_expr)
+
+    raw_json = ligo_compile_json(src_file=src_file, expr=record_expr)
+    codes = json.loads(raw_json)
+    # The compiler returns the views code under the following format:
+    # [[view1, view2], view3, ...]
+    return codes["args"]
+
+
+def compile_views(
+    *, main_file: Path, views_file: Path, pattern: str, prefix="view_"
+):
     views = find_views(views_file, pattern)
     packed_views = []
     print(f"Found {len(views)} views to compile")
-    for name, arg_type, ret_type in views:
-        print(f"Compiling view {prefix+name}")
-        view = ligo_compile_json(main_file, prefix + name)
-        code = json.loads(view)
-        arg_type = ligo_compile_type(src_file=main_file, typ=arg_type)
-        ret_type = ligo_compile_type(src_file=main_file, typ=ret_type)
+
+    args = parallel_compile_types(
+        src_file=main_file, types=[v[1] for v in views]
+    )
+    returns = parallel_compile_types(
+        src_file=main_file, types=[v[2] for v in views]
+    )
+    codes = parallel_compile_views(
+        src_file=main_file, views=views, prefix=prefix
+    )
+    packed_views = []
+    for view, code, arg_type, ret_type in zip(views, codes, args, returns):
         packed_views.append(
             {
-                "name": name,
+                "name": view[0],
                 "parameter": arg_type,
                 "returnType": ret_type,
                 "code": code,
@@ -140,10 +192,15 @@ def compile_entrypoints(*, main_file: Path, entrypoints_file: Path):
 
 
 def compile_checker(*, main_file: Path, entrypoints_file: Path):
-    views = compile_views(main_file=main_file, views_file=entrypoints_file,
-                          pattern=CHECKER_VIEWS_PAT, prefix="wrapper_view_")
-    entrypoints = compile_entrypoints(main_file=main_file,
-                                      entrypoints_file=entrypoints_file)
+    views = compile_views(
+        main_file=main_file,
+        views_file=entrypoints_file,
+        pattern=CHECKER_VIEWS_PAT,
+        prefix="wrapper_view_",
+    )
+    entrypoints = compile_entrypoints(
+        main_file=main_file, entrypoints_file=entrypoints_file
+    )
     views["lazy_functions"] = entrypoints["lazy_functions"]
     return views
 
