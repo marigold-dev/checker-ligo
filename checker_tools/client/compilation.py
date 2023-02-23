@@ -37,7 +37,7 @@ def find_entrypoints(
     with open(src_file) as f:
         code = f.read()
         raw_views = re.findall(view_pattern, code)
-        return [(name, int(id)) for (name, id) in raw_views]
+        return [(int(id), name) for (name, id) in raw_views]
 
 
 def ligo_compile_json(src_file: Path, expr: str):
@@ -138,6 +138,20 @@ def parallel_compile_views(src_file: Path, views, prefix="_view"):
     return codes["args"]
 
 
+def parallel_compile_entrypoints(main_file: Path, entrypoints):
+    prefix = "Bytes.pack lazy_fun_"
+    rows = "; ".join(
+        [f"x{i} = {prefix + ent_name}" for (i, ent_name) in entrypoints]
+    )
+    types = "; ".join([f"x{i} : bytes" for (i, _) in entrypoints])
+    record_expr = "({ %(rows)s } : [@layout:comb] { %(types)s })" % {
+        "rows": rows,
+        "types": types,
+    }
+    bytes = ligo_compile_json(src_file=main_file, expr=record_expr)
+    return json.loads(bytes)
+
+
 def compile_views(
     *, main_file: Path, views_file: Path, pattern: str, prefix="view_"
 ):
@@ -154,6 +168,7 @@ def compile_views(
     codes = parallel_compile_views(
         src_file=main_file, views=views, prefix=prefix
     )
+
     packed_views = []
     for view, code, arg_type, ret_type in zip(views, codes, args, returns):
         packed_views.append(
@@ -173,14 +188,13 @@ def compile_entrypoints(*, main_file: Path, entrypoints_file: Path):
         entrypoints_file, view_pattern=CHECKER_ENTRYPOINTS_PAT
     )
     print(f"Found {len(entrypoints)} entrypoints to compile")
-    packed_entrypoints = []
-    for ent_name, ent_id in entrypoints:
-        print(f"Compiling entrypoint lazy_fun_{ent_name}")
-        expr = f"Bytes.pack lazy_fun_{ent_name}"
-        byts = json.loads(ligo_compile_json(src_file=main_file, expr=expr))[
-            "bytes"
-        ]
 
+    json_bytes = parallel_compile_entrypoints(main_file, entrypoints)["args"]
+    assert len(json_bytes) == len(entrypoints)
+
+    packed_entrypoints = []
+    for ent_id, ent_name in entrypoints:
+        byts = json_bytes[ent_id]["bytes"]
         chunks = [
             byts[chunk_size * i : chunk_size * (i + 1)]
             for i in range(len(byts) // 32000 + 1)
