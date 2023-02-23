@@ -4,3 +4,6 @@
 [submodule "vendor/ctez"]
 	path = vendor/ctez
 	url = https://github.com/Tezsure/ctez
+[submodule "math-lib-cameligo"]
+	path = math-lib-cameligo
+	url = git@github.com:ligolang/math-lib-cameligo.git
