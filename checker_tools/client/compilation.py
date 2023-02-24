@@ -245,6 +245,8 @@ def compile_everything(out_dir: Path):
     mockFA2Views = "src/mockFA2.mligo"
     wtezMain = "src/wtezMain.mligo"
     wtezViews = "src/wtez.mligo"
+    ctezMain = "vendor/ctez/ctez.mligo"
+    ctezCFMMMain = "vendor/ctez/cfmm_tez_ctez.mligo"
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -252,10 +254,16 @@ def compile_everything(out_dir: Path):
     checker_tz = os.path.join(out_dir, "main.tz")
     mockFA2_tz = os.path.join(out_dir, "mockFA2Main.tz")
     wtez_tz = os.path.join(out_dir, "wtezMain.tz")
+    ctez_tz = os.path.join(out_dir, "ctez.tz")
+    ctez_cfmm_tz = os.path.join(out_dir, "ctez_cfmm.tz")
 
     ligo_compile(src_file=checkerMain, entrypoint="main", out_file=checker_tz)
     ligo_compile(src_file=mockFA2Main, entrypoint="main", out_file=mockFA2_tz)
-    ligo_compile(src_file=wtezMain, entrypoint="main", out_file=wtez_tz)
+    ligo_compile(src_file=ctezMain, entrypoint="main", out_file=ctez_tz)
+    ligo_compile(
+        src_file=ctezCFMMMain, entrypoint="main", out_file=ctez_cfmm_tz
+    )
+    ligo_compile(src_file=wtezMain, entrypoint="main", out_file=ctez_tz)
 
     # JSON files
     mockFA2_metadata = mockFA2_views(
@@ -265,14 +273,10 @@ def compile_everything(out_dir: Path):
     checker_functions = compile_checker(
         main_file=checkerMain, entrypoints_file="src/checkerEntrypoints.mligo"
     )
-    with open(
-        os.path.join(out_dir, "mock_fa2_metadata.json"), "w"
-    ) as f:
+    with open(os.path.join(out_dir, "mock_fa2_metadata.json"), "w") as f:
         json.dump(mockFA2_metadata, f, indent=2)
 
-    with open(
-        os.path.join(out_dir, "wtez_metadata.json"), "w"
-    ) as f:
+    with open(os.path.join(out_dir, "wtez_metadata.json"), "w") as f:
         json.dump(wtez_tz, f, indent=2)
 
     with open(os.path.join(out_dir, "functions.json"), "w") as f:

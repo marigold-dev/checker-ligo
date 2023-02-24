@@ -516,14 +516,6 @@ def deploy_ctez(tz: PyTezosClient, repo: CheckerRepo, ttl: Optional[int] = None)
         fa12_src = Path(ctez_dir).joinpath("fa12.mligo")
         cfmm_src = Path(ctez_dir).joinpath("cfmm_tez_ctez.mligo")
 
-        ctez_michelson = tmpdir.joinpath(ctez_src.with_suffix(".tz").name)
-        fa12_michelson = tmpdir.joinpath(fa12_src.with_suffix(".tz").name)
-        cfmm_michelson = tmpdir.joinpath(cfmm_src.with_suffix(".tz").name)
-
-        ligo_compile(ctez_src, "main", ctez_michelson)
-        ligo_compile(fa12_src, "main", fa12_michelson)
-        ligo_compile(cfmm_src, "main", cfmm_michelson)
-
         print("Deploying ctez contract...")
         ctez_storage = {
             "ovens": {},
