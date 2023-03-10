@@ -8,6 +8,8 @@
 #import "../math-lib-cameligo/core/math.mligo" "Math"
 #import "../src/tokenMetadata.mligo" "Metadata"
 #import "./ratio.mligo" "Ratio"
+#import "./kit.mligo" "KitTest"
+#import "./cfmm.mligo" "CFMMTest"
 
 type level = Breath.Logger.level
 
@@ -48,18 +50,18 @@ module Burrow = struct
 
   let suite = [
     Breath.Model.case
-    "burrow_burn_kit"
-    "does not fail for a burrow which needs to be touched"
-    (fun (_: level) ->
-      let last_touched = Tezos.get_now() + 1 in
-      let parameters = { initial_parameters with last_touched=last_touched } in
-      let _burrow, _actual_kit =
-        Burrow.burrow_burn_kit
-          parameters
-          (Kit.kit_of_denomination 1n)
-          burrow
-      in
-      Breath.Assert.succeeds);
+      "burrow_burn_kit"
+      "does not fail for a burrow which needs to be touched"
+      (fun (_: level) ->
+        let last_touched = Tezos.get_now() + 1 in
+        let parameters = { initial_parameters with last_touched=last_touched } in
+        let _burrow, _actual_kit =
+          Burrow.burrow_burn_kit
+            parameters
+            (Kit.kit_of_denomination 1n)
+            burrow
+        in
+        Breath.Assert.succeeds);
 
     Breath.Model.case
       "burrow_burn_kit"
@@ -75,20 +77,20 @@ module Burrow = struct
         ]);
 
     Breath.Model.case
-    "burrow_burn_kit"
-    "burning exactly outstanding_kit returns burrow with expected outstanding kit"
-    (fun _ ->
-      let burrow = with_outstanding burrow 1n in
-      let kit_to_burn = Kit.kit_of_denomination 1n in
-      let burrow, actual_burned =
-        Burrow.burrow_burn_kit
-          initial_parameters
-          kit_to_burn
-          burrow
-      in
-      Breath.Result.and_then
-        (Breath.Assert.is_equal "outstanding amount of kit" burrow.outstanding_kit Kit.kit_zero)
-        (Breath.Assert.is_equal "burned amount of kit" actual_burned kit_to_burn));
+      "burrow_burn_kit"
+      "burning exactly outstanding_kit returns burrow with expected outstanding kit"
+      (fun _ ->
+        let burrow = with_outstanding burrow 1n in
+        let kit_to_burn = Kit.kit_of_denomination 1n in
+        let burrow, actual_burned =
+          Burrow.burrow_burn_kit
+            initial_parameters
+            kit_to_burn
+            burrow
+        in
+        Breath.Result.and_then
+          (Breath.Assert.is_equal "outstanding amount of kit" burrow.outstanding_kit Kit.kit_zero)
+          (Breath.Assert.is_equal "burned amount of kit" actual_burned kit_to_burn));
 
     Breath.Model.case
       "burrow_burn_kit"
@@ -247,31 +249,10 @@ module Burrow = struct
 
 end
 
-module Kit = struct
-
-  let suite = [
-
-    Breath.Model.case
-      "Kit arithmetic"
-      ""
-      (fun _ ->
-        let actual_scaling_factor = Math.power (10n, Metadata.kit_decimal_digits) in
-        Breath.Result.reduce [
-          Breath.Assert.is_equal "" Kit.kit_scaling_factor_nat actual_scaling_factor;
-          Breath.Assert.is_equal "" Kit.kit_scaling_factor_int (int Kit.kit_scaling_factor_nat);
-          (* We skip basic arithmetic because it's just testing the nat type *)
-          Breath.Assert.is_equal ""
-            (Kit.kit_scale 5123467n (Fixedpoint.fixedpoint_of_ratio_floor (Ratio.ratio_of_int 3)))
-            15370401n
-        ]);
-
-  ]
-
-end
-
 let () =
   Breath.Model.run_suites Void [
     Breath.Model.suite "Tests for burrows" Burrow.suite;
-    Breath.Model.suite "Tests for kit" Kit.suite
+    Breath.Model.suite "Tests for kit" KitTest.suite;
+    Breath.Model.suite "Tests for CFMM" CFMMTest.suite
   ]
 
