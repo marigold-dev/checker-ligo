@@ -418,10 +418,6 @@ class CheckerRepo:
         return self.root.joinpath("src")
 
     @property
-    def input_config(self) -> Path:
-        return self.src.joinpath("_input_checker.yaml")
-
-    @property
     def generated_ligo(self) -> Path:
         return self.root.joinpath("generated").joinpath("ligo")
 
@@ -473,6 +469,18 @@ class CheckerRepo:
     def ctez(self) -> Path:
         return self.root.joinpath("vendor").joinpath("ctez")
 
+    @property
+    def ctez_contract(self) -> Path:
+        return self.generated_michelson.joinpath("ctez.tz")
+
+    @property
+    def ctez_cfmm_contract(self) -> Path:
+        return self.generated_michelson.joinpath("ctez_cfmm.tz")
+
+    @property
+    def ctez_fa12(self) -> Path:
+        return self.generated_michelson.joinpath("ctez_fa12.tz")
+
 
 def load_checker_config(path: Optional[Path] = None) -> CheckerConfig:
     """Loads a checker yaml configuration file
@@ -505,12 +513,12 @@ def load_input_config(repo: Optional[CheckerRepo] = None) -> CheckerConfig:
     """
     if repo is None:
         repo = CheckerRepo(".")
-    if not repo.input_config.exists():
+    if not repo.default_config.exists():
         raise FileNotFoundError(
             f"No configuration file found at {repo.input_config}. This file should be automatically "
             f"generated as a part of the code generation process."
         )
-    with repo.input_config.open() as f:
+    with repo.default_config.open() as f:
         raw_config = yaml.load(f, Loader=Loader)
     return CheckerConfigSchema().load(raw_config)
 

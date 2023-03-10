@@ -37,6 +37,12 @@ WAIT_OP_ATTEMPTS = 10
 WAIT_OP_DELAY = 5
 
 
+# FIXME!
+# Every function in here should expect a CheckerConfig argument (instead of
+# e.g. a repo or contract addresses) to make sure thaht the config and
+# contracts make sense
+
+
 default_token_metadata = {
     "kit": {
         "name": "kit",
@@ -512,9 +518,10 @@ def deploy_ctez(tz: PyTezosClient, repo: CheckerRepo, ttl: Optional[int] = None)
     tmpdir = tempfile.TemporaryDirectory(suffix="-checker-ctez")
     with tempfile.TemporaryDirectory(suffix="-checker-ctez") as tmpdir:
         tmpdir = Path(tmpdir)
-        ctez_src = Path(ctez_dir).joinpath("ctez.mligo")
-        fa12_src = Path(ctez_dir).joinpath("fa12.mligo")
-        cfmm_src = Path(ctez_dir).joinpath("cfmm_tez_ctez.mligo")
+
+        ctez_michelson = repo.ctez_contract
+        fa12_michelson = repo.ctez_fa12  # FIXME?
+        cfmm_michelson = repo.ctez_cfmm_contract
 
         print("Deploying ctez contract...")
         ctez_storage = {
