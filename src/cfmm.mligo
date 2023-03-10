@@ -1,5 +1,13 @@
 (* INDEX *)
 
+#include "./cfmmTypes.mligo"
+#include "./error.mligo"
+#include "./constants.mligo"
+#import "./common.mligo" "Common"
+#import "./ctok.mligo" "Ctok"
+#import "./kit.mligo" "Kit"
+#import "./fixedPoint.mligo" "Fixedpoint"
+
 (* The general concept of cfmm is that you have quantity a of an asset A
  * and b of an asset B and you process buy and sell requests by maintaining
  * the product a * b constant. So if someone wants to sell a quantity da of
@@ -35,7 +43,7 @@
     contract), as it was at the end of the last block. This is to be used when
     required for the calculation of the drift derivative instead of up-to-date
     kit_in_ctok, because it is a little harder to manipulate. *)
-[@inline] let cfmm_kit_in_ctok_in_prev_block (cfmm: cfmm) : ratio =
+[@inline] let cfmm_kit_in_ctok_in_prev_block (cfmm: cfmm) : Common.ratio =
   let cfmm = cfmm_assert_initialized cfmm in
   cfmm.kit_in_ctok_in_prev_block
 
@@ -52,48 +60,47 @@ let cfmm_sync_last_observed (cfmm: cfmm) : cfmm =
   else
     { cfmm with
       kit_in_ctok_in_prev_block =
-        make_ratio
-          (mul_nat_int (ctok_to_denomination_nat cfmm.ctok) kit_scaling_factor_int)
-          (mul_nat_int (kit_to_denomination_nat cfmm.kit) ctok_scaling_factor_int);
+        Common.make_ratio
+          ((Ctok.ctok_to_denomination_nat cfmm.ctok) * Kit.kit_scaling_factor_int)
+          ((Kit.kit_to_denomination_nat cfmm.kit) * Ctok.ctok_scaling_factor_int);
       last_level = level;
     }
 
 (** Compute the maximum [min_kit_expected] for [cfmm_buy_kit] to succeed. *)
 let cfmm_view_min_kit_expected_buy_kit
     (cfmm: cfmm)
-    (_target: fixedpoint)
-    (ctok_amount: ctok)
-  : (kit (* min_kit_expected *) * cfmm) =
+    (_target: Fixedpoint.fixedpoint)
+    (ctok_amount: Ctok.ctok)
+  : (Kit.kit (* min_kit_expected *) * cfmm) =
   let cfmm = cfmm_sync_last_observed cfmm in
   let cfmm = cfmm_assert_initialized cfmm in
-  if (eq_ctok_ctok ctok_amount ctok_zero) then
-    (failwith error_BuyKitNoCtokGiven : (kit * cfmm))
+  if (Ctok.eq_ctok_ctok ctok_amount Ctok.ctok_zero) then
+    (failwith error_BuyKitNoCtokGiven : (Kit.kit * cfmm))
   else
     (* db = da * (b / a) * (a / (a + da)) * (1 - fee) or
      * db = da * b / (a + da) * (1 - fee) *)
     let { num = num_uf; den = den_uf; } =
       let { num = num_uf; den = den_uf; } = cfmm_fee in
-      { num = sub_int_int den_uf num_uf; den = den_uf; } (* 1 - cfmm_fee *)
+      { num = den_uf - num_uf; den = den_uf; } (* 1 - cfmm_fee *)
     in
-    let new_cfmm_ctok = ctok_add cfmm.ctok ctok_amount in
+    let new_cfmm_ctok = Ctok.ctok_add cfmm.ctok ctok_amount in
     let numerator =
-      mul_nat_int
-        (ctok_to_denomination_nat ctok_amount)
-        (mul_nat_int (kit_to_denomination_nat cfmm.kit) num_uf) in
+        (Ctok.ctok_to_denomination_nat ctok_amount)
+        *
+        ((Kit.kit_to_denomination_nat cfmm.kit) * num_uf) in
     let denominator =
-      mul_int_int
-        kit_scaling_factor_int
-        (mul_nat_int (ctok_to_denomination_nat new_cfmm_ctok) den_uf) in
-    let bought_kit = kit_of_fraction_floor numerator denominator in
+        Kit.kit_scaling_factor_int
+        *
+        ((Ctok.ctok_to_denomination_nat new_cfmm_ctok) * den_uf) in
+    let bought_kit = Kit.kit_of_fraction_floor numerator denominator in
     (* Due to (a) the constant-factor calculation (which means that to deplete
      * the one amount the other would in effect have to become infinite), (b)
      * the fact that checker owns 1mu of each token, and (c) the fact that we
      * always floor in our calculations, it should be impossible to trigger the
      * following assertion. *)
-
     ( bought_kit,
       { cfmm with
-        kit = kit_sub cfmm.kit bought_kit;
+        kit = Kit.kit_sub cfmm.kit bought_kit;
         ctok = new_cfmm_ctok;
       }
     )
@@ -102,51 +109,51 @@ let cfmm_view_min_kit_expected_buy_kit
     desired amount of kit cannot be bought or if the deadline has passed. *)
 let cfmm_buy_kit
     (cfmm: cfmm)
-    (target: fixedpoint)
-    (ctok_amount: ctok)
-    (min_kit_expected: kit)
+    (target: Fixedpoint.fixedpoint)
+    (ctok_amount: Ctok.ctok)
+    (min_kit_expected: Kit.kit)
     (deadline: timestamp)
-  : (kit * cfmm) =
-  if (eq_ctok_ctok ctok_amount ctok_zero) then
-    (failwith error_BuyKitNoCtokGiven : (kit * cfmm))
-  else if (geq_timestamp_timestamp (Tezos.get_now ()) deadline) then
-    (failwith error_CfmmTooLate : (kit * cfmm))
-  else if (eq_kit_kit min_kit_expected kit_zero) then
-    (failwith error_BuyKitTooLowExpectedKit : (kit * cfmm))
+  : (Kit.kit * cfmm) =
+  if (Ctok.eq_ctok_ctok ctok_amount Ctok.ctok_zero) then
+    (failwith error_BuyKitNoCtokGiven : (Kit.kit * cfmm))
+  else if (Tezos.get_now ()) >= deadline then
+    (failwith error_CfmmTooLate : (Kit.kit * cfmm))
+  else if (Kit.eq_kit_kit min_kit_expected Kit.kit_zero) then
+    (failwith error_BuyKitTooLowExpectedKit : (Kit.kit * cfmm))
   else
     let (bought_kit, cfmm) = cfmm_view_min_kit_expected_buy_kit cfmm target ctok_amount in
-    if lt_kit_kit bought_kit min_kit_expected then
-      (failwith error_BuyKitPriceFailure : (kit * cfmm))
+    if bought_kit < min_kit_expected then
+      (failwith error_BuyKitPriceFailure : (Kit.kit * cfmm))
     else
       (bought_kit, cfmm)
 
 (** Compute the maximum [min_ctok_expected] for [cfmm_sell_kit] to succeed. *)
 let cfmm_view_min_ctok_expected_cfmm_sell_kit
     (cfmm: cfmm)
-    (_target: fixedpoint)
-    (kit_amount: kit)
-  : (ctok * cfmm) =
+    (_target: Fixedpoint.fixedpoint)
+    (kit_amount: Kit.kit)
+  : (Ctok.ctok * cfmm) =
   let cfmm = cfmm_sync_last_observed cfmm in
   let cfmm = cfmm_assert_initialized cfmm in
-  if kit_amount = kit_zero then
-    (failwith error_SellKitNoKitGiven : (ctok * cfmm))
+  if kit_amount = Kit.kit_zero then
+    (failwith error_SellKitNoKitGiven : (Ctok.ctok * cfmm))
   else
     (* db = da * (b / a) * (a / (a + da)) * (1 - fee) or
      * db = da * b / (a + da) * (1 - fee) *)
     let { num = num_uf; den = den_uf; } =
       let { num = num_uf; den = den_uf; } = cfmm_fee in
-      { num = sub_int_int den_uf num_uf; den = den_uf; } (* 1 - cfmm_fee *)
+      { num = den_uf - num_uf; den = den_uf; } (* 1 - cfmm_fee *)
     in
-    let new_cfmm_kit = kit_add cfmm.kit kit_amount in
+    let new_cfmm_kit = Kit.kit_add cfmm.kit kit_amount in
     let numerator =
-      mul_nat_int
-        (kit_to_denomination_nat kit_amount)
-        (mul_nat_int (ctok_to_denomination_nat cfmm.ctok) num_uf) in
+        (Kit.kit_to_denomination_nat kit_amount)
+        *
+        ((Ctok.ctok_to_denomination_nat cfmm.ctok) * num_uf) in
     let denominator =
-      mul_int_int
-        ctok_scaling_factor_int
-        (mul_nat_int (kit_to_denomination_nat new_cfmm_kit) den_uf) in
-    let bought_ctok = ctok_of_fraction_floor numerator denominator in
+        Ctok.ctok_scaling_factor_int
+        *
+        ((Kit.kit_to_denomination_nat new_cfmm_kit) * den_uf) in
+    let bought_ctok = Ctok.ctok_of_fraction_floor numerator denominator in
 
     (* Due to (a) the constant-factor calculation (which means that to deplete
      * the one amount the other would in effect have to become infinite), (b)
@@ -157,7 +164,7 @@ let cfmm_view_min_ctok_expected_cfmm_sell_kit
     ( bought_ctok,
       { cfmm with
         kit = new_cfmm_kit;
-        ctok = ctok_sub cfmm.ctok bought_ctok;
+        ctok = Ctok.ctok_sub cfmm.ctok bought_ctok;
       }
     )
 
@@ -165,21 +172,21 @@ let cfmm_view_min_ctok_expected_cfmm_sell_kit
     cannot be bought or if the deadline has passed. *)
 let cfmm_sell_kit
     (cfmm: cfmm)
-    (target: fixedpoint)
-    (kit_amount: kit)
-    (min_ctok_expected: ctok)
+    (target: Fixedpoint.fixedpoint)
+    (kit_amount: Kit.kit)
+    (min_ctok_expected: Ctok.ctok)
     (deadline: timestamp)
-  : (ctok * cfmm) =
-  if (eq_kit_kit kit_amount kit_zero) then
-    (failwith error_SellKitNoKitGiven : (ctok * cfmm))
-  else if geq_timestamp_timestamp (Tezos.get_now ()) deadline then
-    (failwith error_CfmmTooLate : (ctok * cfmm))
-  else if (eq_ctok_ctok min_ctok_expected ctok_zero) then
-    (failwith error_SellKitTooLowExpectedCtok : (ctok * cfmm))
+  : (Ctok.ctok * cfmm) =
+  if (kit_amount = Kit.kit_zero) then
+    (failwith error_SellKitNoKitGiven : (Ctok.ctok * cfmm))
+  else if (Tezos.get_now ()) >= deadline then
+    (failwith error_CfmmTooLate : (Ctok.ctok * cfmm))
+  else if (Ctok.eq_ctok_ctok min_ctok_expected Ctok.ctok_zero) then
+    (failwith error_SellKitTooLowExpectedCtok : (Ctok.ctok * cfmm))
   else
     let (bought_ctok, cfmm) = cfmm_view_min_ctok_expected_cfmm_sell_kit cfmm target kit_amount in
-    if lt_ctok_ctok bought_ctok min_ctok_expected then
-      (failwith error_SellKitPriceFailure : (ctok * cfmm))
+    if bought_ctok < min_ctok_expected then
+      (failwith error_SellKitPriceFailure : (Ctok.ctok * cfmm))
     else
       (bought_ctok, cfmm)
 
@@ -187,22 +194,22 @@ let cfmm_sell_kit
     for [cfmm_add_liquidity] to succeed. *)
 let cfmm_view_max_kit_deposited_min_lqt_minted_cfmm_add_liquidity
     (cfmm: cfmm)
-    (ctok_amount: ctok)
-  : (lqt * kit * cfmm) =
+    (ctok_amount: Ctok.ctok)
+  : (Lqt.lqt * Kit.kit * cfmm) =
   let cfmm = cfmm_sync_last_observed cfmm in
   let cfmm = cfmm_assert_initialized cfmm in
-  if eq_ctok_ctok ctok_amount ctok_zero then
-    (failwith error_AddLiquidityNoCtokGiven : (lqt * kit * cfmm))
+  if Ctok.eq_ctok_ctok ctok_amount Ctok.ctok_zero then
+    (failwith error_AddLiquidityNoCtokGiven : (Lqt.lqt * Kit.kit * cfmm))
   else
-    let cfmm_ctok = ctok_to_denomination_nat cfmm.ctok in
+    let cfmm_ctok = Ctok.ctok_to_denomination_nat cfmm.ctok in
     let lqt_minted =
-      lqt_of_fraction_floor
-        (mul_int_nat (lqt_to_denomination_int cfmm.lqt) (ctok_to_denomination_nat ctok_amount))
-        (mul_int_nat lqt_scaling_factor_int cfmm_ctok) in
+      Lqt.lqt_of_fraction_floor
+        ((Lqt.lqt_to_denomination_int cfmm.lqt) * (Ctok.ctok_to_denomination_nat ctok_amount))
+        (Lqt.lqt_scaling_factor_int * cfmm_ctok) in
     let kit_deposited =
-      kit_of_fraction_ceil
-        (mul_int_nat (kit_to_denomination_int cfmm.kit) (ctok_to_denomination_nat ctok_amount))
-        (mul_int_nat kit_scaling_factor_int cfmm_ctok) in
+      Kit.kit_of_fraction_ceil
+        ((Kit.kit_to_denomination_int cfmm.kit) * (Ctok.ctok_to_denomination_nat ctok_amount))
+        (Kit.kit_scaling_factor_int * cfmm_ctok) in
     (* Since (a) ctok_amount > 0, (b) cfmm.kit > 0, and (c) we ceil when
      * computing kit_deposited, it should be impossible to trigger the
      * following assertion. *)
@@ -210,9 +217,9 @@ let cfmm_view_max_kit_deposited_min_lqt_minted_cfmm_add_liquidity
     ( lqt_minted,
       kit_deposited,
       { cfmm with
-        kit = kit_add cfmm.kit kit_deposited;
-        ctok = ctok_add cfmm.ctok ctok_amount;
-        lqt = lqt_add cfmm.lqt lqt_minted;
+        kit = Kit.kit_add cfmm.kit kit_deposited;
+        ctok = Ctok.ctok_add cfmm.ctok ctok_amount;
+        lqt = Lqt.lqt_add cfmm.lqt lqt_minted;
       }
     )
 
@@ -232,29 +239,29 @@ let cfmm_view_max_kit_deposited_min_lqt_minted_cfmm_add_liquidity
  * continuously credited with the burrow fee taken from burrow holders. *)
 let cfmm_add_liquidity
     (cfmm: cfmm)
-    (ctok_amount: ctok)
-    (max_kit_deposited: kit)
-    (min_lqt_minted: lqt)
+    (ctok_amount: Ctok.ctok)
+    (max_kit_deposited: Kit.kit)
+    (min_lqt_minted: Lqt.lqt)
     (deadline: timestamp)
-  : (lqt * kit * cfmm) =
-  if geq_timestamp_timestamp (Tezos.get_now ()) deadline then
-    (failwith error_CfmmTooLate : (lqt * kit * cfmm))
-  else if eq_ctok_ctok ctok_amount ctok_zero then
-    (failwith error_AddLiquidityNoCtokGiven : (lqt * kit * cfmm))
-  else if eq_kit_kit max_kit_deposited kit_zero then
-    (failwith error_AddLiquidityNoKitGiven : (lqt * kit * cfmm))
-  else if eq_lqt_lqt min_lqt_minted lqt_zero then
-    (failwith error_AddLiquidityNoLiquidityToBeAdded : (lqt * kit * cfmm))
+  : (Lqt.lqt * Kit.kit * cfmm) =
+  if (Tezos.get_now ()) >= deadline then
+    failwith error_CfmmTooLate
+  else if Ctok.eq_ctok_ctok ctok_amount Ctok.ctok_zero then
+    failwith error_AddLiquidityNoCtokGiven
+  else if max_kit_deposited = Kit.kit_zero then
+    failwith error_AddLiquidityNoKitGiven
+  else if min_lqt_minted = Lqt.lqt_zero then
+    failwith error_AddLiquidityNoLiquidityToBeAdded
   else
     let (lqt_minted, kit_deposited, cfmm) =
       cfmm_view_max_kit_deposited_min_lqt_minted_cfmm_add_liquidity cfmm ctok_amount in
-    if lt_lqt_lqt lqt_minted min_lqt_minted then
-      (failwith error_AddLiquidityTooLowLiquidityMinted : (lqt * kit * cfmm))
-    else if lt_kit_kit max_kit_deposited kit_deposited then
-      (failwith error_AddLiquidityTooMuchKitRequired : (lqt * kit * cfmm))
+    if lqt_minted < min_lqt_minted then
+      failwith error_AddLiquidityTooLowLiquidityMinted
+    else if max_kit_deposited < kit_deposited then
+      failwith error_AddLiquidityTooMuchKitRequired
     else
-      let kit_to_return = kit_sub max_kit_deposited kit_deposited in
-      (* EXPECTED PROPERTY: kit_to_return + final_cfmm_kit = max_kit_deposited + initial_cfmm_kit
+      let kit_to_return = Kit.kit_sub max_kit_deposited kit_deposited in
+      (* EXPECTED PROPERTY: Kit.kit_to_return + final_cfmm_kit = max_kit_deposited + initial_cfmm_kit
        * which follows from the definitions:
        *  kit_to_return  = max_kit_deposited - kit_deposited
        *  final_cfmm_kit = initial_cfmm_kit  + kit_deposited
@@ -265,34 +272,31 @@ let cfmm_add_liquidity
     [min_kit_withdrawn] for [cfmm_remove_liquidity] to succeed. *)
 let cfmm_view_min_ctok_withdrawn_min_kit_withdrawn_cfmm_remove_liquidity
     (cfmm: cfmm)
-    (lqt_burned: lqt)
-  : (ctok * kit * cfmm) =
+    (lqt_burned: Lqt.lqt)
+  : (Ctok.ctok * Kit.kit * cfmm) =
   let cfmm = cfmm_sync_last_observed cfmm in
   let cfmm = cfmm_assert_initialized cfmm in
-  if eq_lqt_lqt lqt_burned lqt_zero then
-    (failwith error_RemoveLiquidityNoLiquidityBurned : (ctok * kit * cfmm))
-  else if geq_lqt_lqt lqt_burned cfmm.lqt then
-    (failwith error_RemoveLiquidityTooMuchLiquidityWithdrawn : (ctok * kit * cfmm))
+  if lqt_burned = Lqt.lqt_zero then
+    failwith error_RemoveLiquidityNoLiquidityBurned
+  else if lqt_burned >= cfmm.lqt then
+    failwith error_RemoveLiquidityTooMuchLiquidityWithdrawn
   else
     let ctok_withdrawn =
-      ctok_of_fraction_floor
-        (mul_nat_int (ctok_to_denomination_nat cfmm.ctok) (lqt_to_denomination_int lqt_burned))
-        (mul_int_nat ctok_scaling_factor_int (lqt_to_denomination_nat cfmm.lqt))
+      Ctok.ctok_of_fraction_floor
+        ((Ctok.ctok_to_denomination_nat cfmm.ctok) * (Lqt.lqt_to_denomination_int lqt_burned))
+        (Ctok.ctok_scaling_factor_int * (Lqt.lqt_to_denomination_nat cfmm.lqt))
     in
     let kit_withdrawn =
-      kit_of_fraction_floor
-        (mul_int_nat (kit_to_denomination_int cfmm.kit) (lqt_to_denomination_nat lqt_burned))
-        (mul_int_nat kit_scaling_factor_int (lqt_to_denomination_nat cfmm.lqt))
+      Kit.kit_of_fraction_floor
+        ((Kit.kit_to_denomination_int cfmm.kit) * (Lqt.lqt_to_denomination_nat lqt_burned))
+        (Kit.kit_scaling_factor_int * (Lqt.lqt_to_denomination_nat cfmm.lqt))
     in
     (* Since (a) 0 < lqt_burned < cfmm.lqt, and (b) we floor for both the kit
      * and the ctok withdrawn, it should be impossible to trigger the following
      * assertions. *)
-
-
-
-    let remaining_ctok = ctok_sub cfmm.ctok ctok_withdrawn in
-    let remaining_lqt = lqt_sub cfmm.lqt lqt_burned in
-    let remaining_kit = kit_sub cfmm.kit kit_withdrawn in
+    let remaining_ctok = Ctok.ctok_sub cfmm.ctok ctok_withdrawn in
+    let remaining_lqt = Lqt.lqt_sub cfmm.lqt lqt_burned in
+    let remaining_kit = Kit.kit_sub cfmm.kit kit_withdrawn in
     let updated = { cfmm with
                     ctok = remaining_ctok;
                     kit = remaining_kit;
@@ -309,32 +313,32 @@ let cfmm_view_min_ctok_withdrawn_min_kit_withdrawn_cfmm_remove_liquidity
  * want to lose the burrow fees. *)
 let cfmm_remove_liquidity
     (cfmm: cfmm)
-    (lqt_burned: lqt)
-    (min_ctok_withdrawn: ctok)
-    (min_kit_withdrawn: kit)
+    (lqt_burned: Lqt.lqt)
+    (min_ctok_withdrawn: Ctok.ctok)
+    (min_kit_withdrawn: Kit.kit)
     (deadline: timestamp)
-  : (ctok * kit * cfmm) =
-  if geq_timestamp_timestamp (Tezos.get_now ()) deadline then
-    (failwith error_CfmmTooLate : (ctok * kit * cfmm))
-  else if eq_lqt_lqt lqt_burned lqt_zero then
-    (failwith error_RemoveLiquidityNoLiquidityBurned : (ctok * kit * cfmm))
-  else if geq_lqt_lqt lqt_burned cfmm.lqt then
-    (failwith error_RemoveLiquidityTooMuchLiquidityWithdrawn : (ctok * kit * cfmm))
-  else if eq_ctok_ctok min_ctok_withdrawn ctok_zero then
-    (failwith error_RemoveLiquidityNoCtokWithdrawnExpected : (ctok * kit * cfmm))
-  else if eq_kit_kit min_kit_withdrawn kit_zero then
-    (failwith error_RemoveLiquidityNoKitWithdrawnExpected : (ctok * kit * cfmm))
+  : (Ctok.ctok * Kit.kit * cfmm) =
+  if (Tezos.get_now ()) >= deadline then
+    failwith error_CfmmTooLate
+  else if lqt_burned = Lqt.lqt_zero then
+    failwith error_RemoveLiquidityNoLiquidityBurned
+  else if lqt_burned >= cfmm.lqt then
+    failwith error_RemoveLiquidityTooMuchLiquidityWithdrawn
+  else if Ctok.eq_ctok_ctok min_ctok_withdrawn Ctok.ctok_zero then
+    failwith error_RemoveLiquidityNoCtokWithdrawnExpected
+  else if min_kit_withdrawn = Kit.kit_zero then
+    failwith error_RemoveLiquidityNoKitWithdrawnExpected
   else
     let (ctok_withdrawn, kit_withdrawn, cfmm) =
       cfmm_view_min_ctok_withdrawn_min_kit_withdrawn_cfmm_remove_liquidity cfmm lqt_burned in
-    if lt_ctok_ctok ctok_withdrawn min_ctok_withdrawn then
-      (failwith error_RemoveLiquidityCantWithdrawEnoughCtok : (ctok * kit * cfmm))
-    else if lt_kit_kit kit_withdrawn min_kit_withdrawn then
-      (failwith error_RemoveLiquidityCantWithdrawEnoughKit : (ctok * kit * cfmm))
+    if ctok_withdrawn < min_ctok_withdrawn then
+      failwith error_RemoveLiquidityCantWithdrawEnoughCtok
+    else if kit_withdrawn < min_kit_withdrawn then
+      failwith error_RemoveLiquidityCantWithdrawEnoughKit
     else
       (ctok_withdrawn, kit_withdrawn, cfmm)
 
 (** Add accrued burrowing fees to the cfmm contract. *)
-let cfmm_add_accrued_kit (cfmm: cfmm) (accrual: kit) : cfmm =
+let cfmm_add_accrued_kit (cfmm: cfmm) (accrual: Kit.kit) : cfmm =
   let cfmm = cfmm_sync_last_observed cfmm in
-  { cfmm with kit = kit_add cfmm.kit accrual }
+  { cfmm with kit = Kit.kit_add cfmm.kit accrual }

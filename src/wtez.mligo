@@ -1,10 +1,3 @@
-(* open Fa2Interface *)
-(* open Fa2Ledger *)
-(* open Common *)
-(* open VaultTypes *)
-(* open Error *)
-(* open TokenMetadata *)
-
 (** Originate a vault contract with no delegate and zero tez. This way we can
   * originate vaults pretty easily, everytime we look one up: if it's not
   * there, just originate it now. *)
