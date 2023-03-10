@@ -245,8 +245,12 @@ def compile_everything(out_dir: Path):
     mockFA2Views = "src/mockFA2.mligo"
     wtezMain = "src/wtezMain.mligo"
     wtezViews = "src/wtez.mligo"
+    wctezMain = "src/wctezMain.mligo"
+    wctezViews = "src/wctez.mligo"
     ctezMain = "vendor/ctez/ctez.mligo"
     ctezCFMMMain = "vendor/ctez/cfmm_tez_ctez.mligo"
+    ctezFA12 = "vendor/ctez/fa12.mligo"
+    # FIXME add fa12
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -254,8 +258,10 @@ def compile_everything(out_dir: Path):
     checker_tz = os.path.join(out_dir, "main.tz")
     mockFA2_tz = os.path.join(out_dir, "mockFA2Main.tz")
     wtez_tz = os.path.join(out_dir, "wtezMain.tz")
+    wctez_tz = os.path.join(out_dir, "wctezMain.tz")
     ctez_tz = os.path.join(out_dir, "ctez.tz")
     ctez_cfmm_tz = os.path.join(out_dir, "ctez_cfmm.tz")
+    ctez_fa12_tz = os.path.join(out_dir, "ctez_fa12.tz")
 
     ligo_compile(src_file=checkerMain, entrypoint="main", out_file=checker_tz)
     ligo_compile(src_file=mockFA2Main, entrypoint="main", out_file=mockFA2_tz)
@@ -263,13 +269,16 @@ def compile_everything(out_dir: Path):
     ligo_compile(
         src_file=ctezCFMMMain, entrypoint="main", out_file=ctez_cfmm_tz
     )
-    ligo_compile(src_file=wtezMain, entrypoint="main", out_file=ctez_tz)
+    ligo_compile(src_file=wtezMain, entrypoint="main", out_file=wtez_tz)
+    ligo_compile(src_file=wctezMain, entrypoint="main", out_file=wctez_tz)
+    ligo_compile(src_file=ctezFA12, entrypoint="main", out_file=ctez_fa12_tz)
 
     # JSON files
     mockFA2_metadata = mockFA2_views(
         main_file=mockFA2Main, views_file=mockFA2Views
     )
     wtez_metadata = wtez_views(main_file=wtezMain, views_file=wtezViews)
+    wctez_metadata = wctez_views(main_file=wctezMain, views_file=wctezViews)
     checker_functions = compile_checker(
         main_file=checkerMain, entrypoints_file="src/checkerEntrypoints.mligo"
     )
@@ -277,7 +286,10 @@ def compile_everything(out_dir: Path):
         json.dump(mockFA2_metadata, f, indent=2)
 
     with open(os.path.join(out_dir, "wtez_metadata.json"), "w") as f:
-        json.dump(wtez_tz, f, indent=2)
+        json.dump(wtez_metadata, f, indent=2)
+
+    with open(os.path.join(out_dir, "wctez_metadata.json"), "w") as f:
+        json.dump(wctez_metadata, f, indent=2)
 
     with open(os.path.join(out_dir, "functions.json"), "w") as f:
         json.dump(checker_functions, f, indent=2)
