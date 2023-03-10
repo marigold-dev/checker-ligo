@@ -27,8 +27,8 @@
 (* in use *)
 
 (* tok *)
-[@inline] let tok_token_id : FA2.fa2_token_id = 2n
-[@inline] let tok_decimal_digits : nat = 6n
+[@inline] let tok_token_id : FA2.fa2_token_id = wtez_token_id
+[@inline] let tok_decimal_digits : nat = wtez_decimal_digits
 
 (* ctok *)
 [@inline] let ctok_token_id : FA2.fa2_token_id = 3n
