@@ -24,7 +24,7 @@ from checker_tools.builder.config import (
     CheckerConfig,
     CheckerRepo,
     IssuedTokenConfig,
-    load_input_config,
+    load_checker_config,
 )
 from checker_tools.client.operations import inject
 from checker_tools.client.compilation import ligo_compile
@@ -345,7 +345,7 @@ def deploy_wtez(
     ttl: Optional[int] = None,
 ):
     print("Deploying the wtez contract.")
-    config = load_input_config()
+    config = load_checker_config(repo.default_config)
     src = repo.wtez_contract
 
     with repo.wtez_metadata.open() as f:
@@ -381,7 +381,7 @@ def deploy_wctez(
     ttl: Optional[int] = None,
 ):
     print("Deploying the wctez contract.")
-    config = load_input_config()
+    config = load_checker_config(repo.default_config)
     src = repo.wctez_contract
 
     with repo.wctez_metadata.open() as f:
@@ -416,7 +416,7 @@ def deploy_mockFA2(
     ttl: Optional[int] = None,
 ):
     print("Deploying the mock FA2 contract.")
-    config = load_input_config()
+    config = load_checker_config(repo.default_config)
     src = repo.mock_fa2_contract
 
     with repo.mock_fa2_metadata.open() as f:
@@ -455,7 +455,7 @@ def deploy_checker(
     ttl: Optional[int] = None,
 ):
     print("Deploying the wrapper.")
-    config = load_input_config()
+    config = load_checker_config(repo.default_config)
 
     checker = deploy_contract(
         tz,
@@ -488,9 +488,6 @@ def deploy_checker(
             arg = (int(fun["fn_id"]), "0x" + chunk)
             inject(tz, checker.deployFunction(arg).as_transaction().autofill(ttl=ttl).sign())
             print("  deployed: chunk {}.".format(chunk_no))
-
-    return checker
-    # FIXME: dead code
 
     print("Sealing.")
 

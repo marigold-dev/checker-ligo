@@ -499,7 +499,7 @@ def load_checker_config(path: Optional[Path] = None) -> CheckerConfig:
     return CheckerConfigSchema().load(raw_config)
 
 
-def load_input_config(repo: Optional[CheckerRepo] = None) -> CheckerConfig:
+def load_default_config(repo: Optional[CheckerRepo] = None) -> CheckerConfig:
     """Loads the checker configuration file used as the input for code generation
 
     Args:
@@ -515,7 +515,7 @@ def load_input_config(repo: Optional[CheckerRepo] = None) -> CheckerConfig:
         repo = CheckerRepo(".")
     if not repo.default_config.exists():
         raise FileNotFoundError(
-            f"No configuration file found at {repo.input_config}. This file should be automatically "
+            f"No configuration file found at {repo.default_config}. This file should be automatically "
             f"generated as a part of the code generation process."
         )
     with repo.default_config.open() as f:

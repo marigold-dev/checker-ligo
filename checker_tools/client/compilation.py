@@ -239,17 +239,19 @@ def wctez_views(*, main_file: Path, views_file: Path):
 
 
 # TODO: use configurations
-def compile_everything(out_dir: Path):
-    checkerMain = "src/main.mligo"
-    mockFA2Main = "src/mockFA2Main.mligo"
-    mockFA2Views = "src/mockFA2.mligo"
-    wtezMain = "src/wtezMain.mligo"
-    wtezViews = "src/wtez.mligo"
-    wctezMain = "src/wctezMain.mligo"
-    wctezViews = "src/wctez.mligo"
-    ctezMain = "vendor/ctez/ctez.mligo"
-    ctezCFMMMain = "vendor/ctez/cfmm_tez_ctez.mligo"
-    ctezFA12 = "vendor/ctez/fa12.mligo"
+def compile_everything(*, out_dir:str="generated/michelson",
+                       src_dir:str="src/",
+                       vendor_dir:str="vendor/"):
+    checkerMain = os.path.join(src_dir, "main.mligo")
+    mockFA2Main = os.path.join(src_dir, "mockFA2Main.mligo")
+    mockFA2Views = os.path.join(src_dir, "mockFA2.mligo")
+    wtezMain = os.path.join(src_dir, "wtezMain.mligo")
+    wtezViews = os.path.join(src_dir, "wtez.mligo")
+    wctezMain = os.path.join(src_dir, "wctezMain.mligo")
+    wctezViews = os.path.join(src_dir, "wctez.mligo")
+    ctezMain = os.path.join(vendor_dir, "ctez/ctez.mligo")
+    ctezCFMMMain = os.path.join(vendor_dir, "ctez/cfmm_tez_ctez.mligo")
+    ctezFA12 = os.path.join(vendor_dir, "ctez/fa12.mligo")
     # FIXME add fa12
 
     if not os.path.exists(out_dir):
@@ -280,7 +282,7 @@ def compile_everything(out_dir: Path):
     wtez_metadata = wtez_views(main_file=wtezMain, views_file=wtezViews)
     wctez_metadata = wctez_views(main_file=wctezMain, views_file=wctezViews)
     checker_functions = compile_checker(
-        main_file=checkerMain, entrypoints_file="src/checkerEntrypoints.mligo"
+        main_file=checkerMain, entrypoints_file=os.path.join(src_dir, "checkerEntrypoints.mligo")
     )
     with open(os.path.join(out_dir, "mock_fa2_metadata.json"), "w") as f:
         json.dump(mockFA2_metadata, f, indent=2)
