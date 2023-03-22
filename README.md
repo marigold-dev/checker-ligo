@@ -43,6 +43,7 @@ be available in the future.
 * we recommend using [pyenv](https://realpython.com/intro-to-pyenv/) to manage your dependencies;
 * make sure you have Python ≥ 3.9 and [pytezos](https://pytezos.org/) and that you create a specific
   environment;
+* install the `checker` package using `python setup.py install`;
 * optionally, install Jupyter to run the tutorial notebook.
 
 ### Submodules
@@ -53,6 +54,6 @@ the math Cameligo library; make sure you clone the repository with the submodule
 ## Compilation and deployment
 
 The compilation script has been simplified and now only uses Python. You should be able to compile
-the project using `checker_tools.client.compilation.compile_everything(path)`. If not, I apologize.
+the project using `checker_tools.client.compilation.compile_everything(path)`.
 
-Please refer to the demo notebook for more detailed instructions (coming soon).
+Please refer to the tutorial notebooks for more detailed instructions.
