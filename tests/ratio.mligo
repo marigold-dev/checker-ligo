@@ -5,6 +5,11 @@ let ratio_of_int (i: int) : Common.ratio = { num = i; den = 1}
 
 [@inline] let ratio_of_nat (n: nat) : Common.ratio = ratio_of_int (int n)
 
+let eq_ratio_ratio (x: Common.ratio) (y: Common.ratio) : bool =
+  let { num = x_num; den = x_den; } = x in
+  let { num = y_num; den = y_den; } = y in
+  (x_num * y_den) = (y_num * x_den)
+
 let lt_ratio_ratio (x: Common.ratio) (y: Common.ratio) : bool =
   let { num = x_num; den = x_den; } = x in
   let { num = y_num; den = y_den; } = y in
@@ -13,7 +18,7 @@ let lt_ratio_ratio (x: Common.ratio) (y: Common.ratio) : bool =
 let leq_ratio_ratio (x: Common.ratio) (y: Common.ratio) : bool =
   let { num = x_num; den = x_den; } = x in
   let { num = y_num; den = y_den; } = y in
-  x_num * y_den < y_num * x_den
+  x_num * y_den <= y_num * x_den
 
 let geq_ratio_ratio (x: Common.ratio) (y: Common.ratio) : bool = leq_ratio_ratio y x
 
