@@ -1,3 +1,6 @@
+#include "./liquidationAuctionPrimitiveTypes.mligo"
+#include "./liquidationAuctionTypes.mligo"
+
 (* Double-linked list for burrow slices which acts as a higher-level interface for data stored in the AVL queue.
  * This data structure allows for fast lookups of slices for a specific burrow, and
  * functions which are adding or removing slices from the queue should use this module instead of
@@ -193,7 +196,7 @@ type queue_end = QueueFront | QueueBack
     let storage, root_ptr = avl_del storage ptr in
     {auctions with avl_storage=storage;}, SliceList {meta with slice_list_bounds=bounds;}, root_ptr, slice.contents
 
-(* BEGIN_OCAML   
+(* BEGIN_OCAML
 (* [@@@coverage off] *)
 
 (* Extra functionality we want for testing, etc. can go here.

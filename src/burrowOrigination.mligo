@@ -1,14 +1,14 @@
-(* open BurrowTypes *)
-(* open CheckerTypes *)
-(* open Fa2Interface *)
+#import "./checkerTypes.mligo" "CheckerTypes"
+#import "./burrowTypes.mligo" "BurrowTypes"
+#import "./fa2Interface.mligo" "FA2"
 
-[@inline] let originate_burrow (state: checker) (delegate_opt: key_hash option) : operation * address =
+[@inline] let originate_burrow (state: CheckerTypes.checker) (delegate_opt: key_hash option) : operation * address =
   Tezos.create_contract
-    (fun (p : burrow_parameter) (storage : burrow_storage) ->
+    (fun (p : BurrowTypes.burrow_parameter) (storage : BurrowTypes.burrow_storage) ->
        if Tezos.get_sender () <> storage.checker_address then
-         (failwith ((-1)) : operation list * burrow_storage)
+         (failwith ((-1)) : operation list * BurrowTypes.burrow_storage)
        else if Tezos.get_amount () <> 0mutez then
-         (failwith ((-2)) : operation list * burrow_storage)
+         (failwith ((-2)) : operation list * BurrowTypes.burrow_storage)
        else
          match p with
          | BurrowSetDelegate kho ->
@@ -29,9 +29,9 @@
                ];
              } in
            let fa2_transfer_contract =
-             match (Tezos.get_entrypoint_opt "%transfer" storage.collateral_fa2 : (fa2_transfer list) contract option) with
+             match (Tezos.get_entrypoint_opt "%transfer" storage.collateral_fa2 : (FA2.fa2_transfer list) contract option) with
              | Some c -> c
-             | None -> (failwith ((-4)) : (fa2_transfer list) contract) in
+             | None -> (failwith ((-4)) : (FA2.fa2_transfer list) contract) in
            let op =
              Tezos.transaction
                [transfer] (0mutez)

@@ -1,7 +1,9 @@
-(* open Kit *)
-(* open LiquidationAuctionPrimitiveTypes *)
-(* open Mem *)
-(* open Avl *)
+#import "./kit.mligo" "Kit"
+#include "./liquidationAuctionPrimitiveTypes.mligo"
+#include "./mem.mligo"
+#include "./avl.mligo"
+
+type liquidation_auction_id = liquidation_auction_id
 
 (* [@@@coverage off] *)
 

@@ -1,6 +1,6 @@
-(* open Ptr *)
-(* open LiquidationAuctionPrimitiveTypes *)
-(* open Error *)
+#include "./ptr.mligo"
+#include "./liquidationAuctionPrimitiveTypes.mligo"
+#include "./error.mligo"
 
 (*
  * BigMap
@@ -19,7 +19,7 @@ type mem = {
   last_ptr: ptr;
 }
 
-(* BEGIN_OCAML   
+(* BEGIN_OCAML
 (* [@@@coverage off] *)
 
 type ops = { reads: int; writes: int }
@@ -32,7 +32,7 @@ let reset_ops () = ops := { reads=0; writes=0 }
 
 let mem_empty = {last_ptr = ptr_null; mem = (Big_map.empty: (ptr, node) big_map); }
 
-(* BEGIN_OCAML   
+(* BEGIN_OCAML
 (* [@@@coverage off] *)
 let mem_bindings (mem: mem) = Big_map.bindings mem.mem
 (* [@@@coverage on] *)

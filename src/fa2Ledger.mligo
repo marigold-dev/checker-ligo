@@ -1,4 +1,4 @@
-(* open Fa2Interface *)
+#include "./fa2Interface.mligo"
 
 (*
 Reference:
@@ -41,7 +41,7 @@ type fa2_state =
   let ledger = st.ledger in
   let key = (tok , addr) in
   let prev_balance = get_fa2_ledger_value ledger key in
-  let new_balance = add_nat_nat prev_balance amnt in
+  let new_balance = prev_balance + amnt in
   let ledger = set_fa2_ledger_value ledger key new_balance in
   { st with ledger = ledger }
 
@@ -51,7 +51,7 @@ type fa2_state =
   let key = (tok, addr) in
   let prev_balance = get_fa2_ledger_value ledger key in
   let new_balance =
-    match is_nat (sub_nat_nat prev_balance amnt) with
+    match is_nat (prev_balance - amnt) with
     | None -> (failwith "FA2_INSUFFICIENT_BALANCE" : nat)
     | Some b -> b in
   let ledger = set_fa2_ledger_value ledger key new_balance in
@@ -64,10 +64,10 @@ type fa2_state =
   let key = (tok , addr) in
   let balance_ = get_fa2_ledger_value ledger key in
   (* ISSUE *)
-  let balance_ = add_nat_nat balance_ amnt_to_issue in
+  let balance_ = balance_ + amnt_to_issue in
   (* WITHDRAW *)
   let balance_ =
-    match is_nat (sub_nat_nat balance_ amnt_to_withdraw) with
+    match is_nat (balance_ - amnt_to_withdraw) with
     | None -> (failwith "FA2_INSUFFICIENT_BALANCE" : nat)
     | Some b -> b in
   (* UPDATE STATE *)
