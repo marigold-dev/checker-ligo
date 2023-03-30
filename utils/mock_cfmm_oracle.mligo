@@ -3,6 +3,12 @@ type state =
     owner: address;
   }
 
+let make_storage (owner: address) =
+  {
+    price = (1n, 1n);
+    owner = owner
+  }
+
 type params =
   | Update of (nat * nat)
   | GetCfmmPrice of (nat * nat) contract
@@ -13,6 +19,6 @@ let main (op, state: params * state): operation list * state =
     let op = Tezos.transaction state.price 0mutez cb in
     ([op], state)
   | Update new_price ->
-    if Tezos.sender = state.owner
+    if Tezos.get_sender () = state.owner
     then (([]: operation list), {state with price = new_price })
     else failwith "unauthorized"
