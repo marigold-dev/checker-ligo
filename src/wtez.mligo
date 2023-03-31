@@ -3,7 +3,7 @@
   * there, just originate it now. *)
 [@inline] let originate_vault (owner: address) : operation * address =
   Tezos.create_contract
-    (fun (p, storage : vault_parameter * vault_storage) ->
+    (fun (p: vault_parameter) (storage: vault_storage) ->
        match p with
        | Vault_set_delegate kho ->
          if (Tezos.get_amount ()) <> 0mutez then

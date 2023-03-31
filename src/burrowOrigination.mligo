@@ -4,7 +4,7 @@
 
 [@inline] let originate_burrow (state: checker) (delegate_opt: key_hash option) : operation * address =
   Tezos.create_contract
-    (fun (p, storage : burrow_parameter * burrow_storage) ->
+    (fun (p : burrow_parameter) (storage : burrow_storage) ->
        if Tezos.get_sender () <> storage.checker_address then
          (failwith ((-1)) : operation list * burrow_storage)
        else if Tezos.get_amount () <> 0mutez then
