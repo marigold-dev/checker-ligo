@@ -24,42 +24,11 @@
 # SOFTWARE.
 version: "3.6"
 services:
-  db:
-    container_name: checker_postgres
-    image: postgres:14
-    shm_size: 1g
-    restart: always
-    environment:
-      - POSTGRES_USER=root
-      - POSTGRES_PASSWORD=root
-      - POSTGRES_DB=bcd
-      - PGDATA=/var/lib/postgresql/data/pgdata
-    volumes:
-      - db:/var/lib/postgresql/data
-  api:
-    container_name: checker_bcdhub_api
-    restart: always
-    image: ghcr.io/baking-bad/bcdhub-api:4.3.0
-    environment:
-      - BCD_ENV=sandbox
-      - GIN_MODE=debug
-      - POSTGRES_USER=root
-      - POSTGRES_PASSWORD=root
-      - SANDBOX_NODE_URI=http://sandbox:20000
-      - SANDBOX_IPFS_GATEWAY=https://cloudflare-ipfs.com
-    depends_on:
-      - db
-    ports:
-      - 127.0.0.1:14000:14000
-    volumes:
-      - bcdshare:/etc/bcd
-    links:
-      - "flextesa:sandbox"
   flextesa:
     container_name: checker_flextesa
     restart: always
-    image: oxheadalpha/flextesa:20221123
-    command: limabox start
+    image: oxheadalpha/flextesa:20230313
+    command: mumbaibox start
     environment:
       - block_time=4
       - flextesa_node_cors_origin=*
@@ -67,16 +36,3 @@ services:
       - 127.0.0.1:20000:20000
     expose:
       - 20000/tcp
-  gui:
-    container_name: sandbox_gui
-    restart: always
-    image: ghcr.io/baking-bad/bcdhub-gui:4.3.0
-    depends_on:
-      - api
-    ports:
-      - 127.0.0.1:8000:80
-
-volumes:
-  bcdshare:
-  db:
-    driver: local

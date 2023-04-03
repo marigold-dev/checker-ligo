@@ -102,10 +102,8 @@ def parallel_compile_types(
     # We use lambdas to compile types because tuples give inconsistent results
     types = "(" + "->".join([f"({t})" for t in types]) + ")"
 
-    print("*** Compiling types: ", types)
     raws = ligo_compile_type(src_file=src_file, typ=types)
 
-    print(raws)
     args = []
     while raws["prim"] == "lambda":
         args.append(raws["args"][0])
@@ -130,7 +128,6 @@ def parallel_compile_views(src_file: Path, views, prefix="_view"):
         "types": types,
     }
 
-    print("*** Compiling views: ", record_expr)
 
     raw_json = ligo_compile_json(src_file=src_file, expr=record_expr)
     codes = json.loads(raw_json)
@@ -158,7 +155,6 @@ def compile_views(
 ):
     views = find_views(views_file, pattern)
     packed_views = []
-    print(f"Found {len(views)} views to compile")
 
     args = parallel_compile_types(
         src_file=main_file, types=[v[1] for v in views]
@@ -188,7 +184,6 @@ def compile_entrypoints(*, main_file: Path, entrypoints_file: Path):
     entrypoints = find_entrypoints(
         entrypoints_file, view_pattern=CHECKER_ENTRYPOINTS_PAT
     )
-    print(f"Found {len(entrypoints)} entrypoints to compile")
 
     json_bytes = parallel_compile_entrypoints(main_file, entrypoints)["args"]
     assert len(json_bytes) == len(entrypoints)
