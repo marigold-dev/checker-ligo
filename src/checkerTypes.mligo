@@ -1,4 +1,18 @@
-type burrow_map = (burrow_id, burrow) big_map
+#import "./burrow.mligo" "Burrow"
+#import "./cfmm.mligo" "CFMM"
+#import "./tok.mligo" "Tok"
+#import "./kit.mligo" "Kit"
+#import "./cfmmTypes.mligo" "CFMMTypes"
+#import "./fa2Ledger.mligo" "FA2"
+#import "./fixedPoint.mligo" "FixedPoint"
+#import "./common.mligo" "Common"
+#import "./parameters.mligo" "Parameters"
+#import "./liquidationAuctionTypes.mligo" "Liquidation"
+#include "./error.mligo"
+
+type burrow_id = address * nat
+
+type burrow_map = (burrow_id, Burrow.burrow) big_map
 
 type external_contracts = {
   oracle : address;
@@ -9,24 +23,24 @@ type external_contracts = {
 
 type checker =
   { burrows : burrow_map;
-    cfmm : cfmm;
-    parameters : parameters;
-    liquidation_auctions : liquidation_auctions;
-    last_index : fixedpoint option;
-    last_ctez_in_tez : ratio option;
-    fa2_state : fa2_state;
+    cfmm : CFMMTypes.cfmm;
+    parameters : Parameters.t;
+    liquidation_auctions : Liquidation.liquidation_auctions;
+    last_index : FixedPoint.fixedpoint option;
+    last_ctez_in_tez : Common.ratio option;
+    fa2_state : FA2.fa2_state;
     external_contracts : external_contracts;
   }
 
 (** Make a fresh state. *)
 let initial_checker (external_contracts: external_contracts) =
-  { burrows = (Big_map.empty: (burrow_id, burrow) big_map);
-    cfmm = initial_cfmm ();
-    parameters = initial_parameters;
-    liquidation_auctions = liquidation_auction_empty;
-    last_index = (None : fixedpoint option);
-    last_ctez_in_tez = (None : ratio option);
-    fa2_state = initial_fa2_state;
+  { burrows = (Big_map.empty: (burrow_id, Burrow.burrow) big_map);
+    cfmm = CFMM.initial_cfmm ();
+    parameters = Parameters.initial_parameters;
+    liquidation_auctions = Liquidation.liquidation_auction_empty;
+    last_index = (None : FixedPoint.fixedpoint option);
+    last_ctez_in_tez = (None : Common.ratio option);
+    fa2_state = FA2.initial_fa2_state;
     external_contracts = external_contracts;
   }
 
@@ -45,10 +59,10 @@ type wrapper =
   }
 
 type view_current_liquidation_auction_details_result =
-  { auction_id: liquidation_auction_id
-  ; collateral: tok
-  ; minimum_bid: kit
-  ; current_bid: bid option
+  { auction_id: Liquidation.liquidation_auction_id
+  ; collateral: Tok.tok
+  ; minimum_bid: Kit.kit
+  ; current_bid: Liquidation.bid option
   ; remaining_blocks: int option
   ; remaining_seconds: int option
   }
@@ -57,17 +71,17 @@ type view_current_liquidation_auction_details_result =
 (**                           EXTERNAL_CONTRACTS                             *)
 (* ************************************************************************* *)
 
-[@inline] let get_transfer_ctok_fa2_entrypoint (external_contracts: external_contracts): (fa2_transfer list) contract =
-  match (Tezos.get_entrypoint_opt "%transfer" external_contracts.ctok_fa2 : (fa2_transfer list) contract option) with
+[@inline] let get_transfer_ctok_fa2_entrypoint (external_contracts: external_contracts): (FA2.fa2_transfer list) contract =
+  match (Tezos.get_entrypoint_opt "%transfer" external_contracts.ctok_fa2 : (FA2.fa2_transfer list) contract option) with
   | Some c -> c
-  | None -> (failwith error_GetEntrypointOptFailureFA2Transfer : (fa2_transfer list) contract)
+  | None -> (failwith error_GetEntrypointOptFailureFA2Transfer : (FA2.fa2_transfer list) contract)
 
 [@inline] let get_ctez_cfmm_price_entrypoint (external_contracts: external_contracts): ((nat * nat) contract) contract =
   match (Tezos.get_entrypoint_opt "%getMarginalPrice" external_contracts.ctez_cfmm : ((nat * nat) contract) contract option) with
   | Some c -> c
   | None -> (failwith error_GetEntrypointOptFailureCtezGetMarginalPrice : ((nat * nat) contract) contract)
 
-[@inline] let get_transfer_collateral_fa2_entrypoint (external_contracts: external_contracts): (fa2_transfer list) contract =
-  match (Tezos.get_entrypoint_opt "%transfer" external_contracts.collateral_fa2 : (fa2_transfer list) contract option) with
+[@inline] let get_transfer_collateral_fa2_entrypoint (external_contracts: external_contracts): (FA2.fa2_transfer list) contract =
+  match (Tezos.get_entrypoint_opt "%transfer" external_contracts.collateral_fa2 : (FA2.fa2_transfer list) contract option) with
   | Some c -> c
-  | None -> (failwith error_GetEntrypointOptFailureFA2Transfer : (fa2_transfer list) contract)
+  | None -> (failwith error_GetEntrypointOptFailureFA2Transfer : (FA2.fa2_transfer list) contract)

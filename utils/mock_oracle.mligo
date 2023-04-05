@@ -3,6 +3,12 @@ type state =
     owner: address;
   }
 
+let make_storage (owner: address) =
+  {
+    price = (1n, 1n);
+    owner = owner
+  }
+
 type params =
   | Update of (nat * nat)
   | GetPrice of (nat * nat) contract

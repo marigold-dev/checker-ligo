@@ -1,5 +1,3 @@
-(* INDEX *)
-
 #include "./cfmmTypes.mligo"
 #include "./error.mligo"
 #include "./constants.mligo"

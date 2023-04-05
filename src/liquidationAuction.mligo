@@ -1,4 +1,11 @@
 #include "./liquidationAuctionPrimitiveTypes.mligo"
+#include "./liquidationAuctionTypes.mligo"
+#import "./constants.mligo" "Constants"
+#import "./common.mligo" "Common"
+#import "./sliceList.mligo" "SL"
+#import "./tok.mligo" "Tok"
+#import "./kit.mligo" "Kit"
+#import "./fixedPoint.mligo" "FixedPoint"
 
 (*
 Utku: Lifecycle of liquidation slices.
@@ -69,6 +76,7 @@ Utku: Lifecycle of liquidation slices.
    this case, we transfer the result to the callee, and remove the auction alltogether.
 *)
 
+
 (* When burrows send a liquidation_slice, they get a pointer into a tree leaf.
  * Initially that node belongs to 'queued_slices' tree, but this can change over time
  * when we start auctions.
@@ -76,14 +84,12 @@ Utku: Lifecycle of liquidation slices.
 let liquidation_auction_send_to_auction
     (auctions: liquidation_auctions) (contents: liquidation_slice_contents)
   : (liquidation_auctions * leaf_ptr) =
-  if geq_nat_nat
-      (avl_height auctions.avl_storage auctions.queued_slices)
-      max_liquidation_queue_height then
+  if (avl_height auctions.avl_storage auctions.queued_slices) >= Constants.max_liquidation_queue_height then
     (failwith error_LiquidationQueueTooLong : liquidation_auctions * leaf_ptr)
   else
-    let burrow_slices = slice_list_from_auction_state auctions contents.burrow in
-    let auctions, burrow_slices, (SliceListElement (ret, _)) = slice_list_append burrow_slices auctions auctions.queued_slices QueueBack contents in
-    let auctions = slice_list_to_auction_state auctions burrow_slices in
+    let burrow_slices = SL.slice_list_from_auction_state auctions contents.burrow in
+    let auctions, burrow_slices, (SliceListElement (ret, _)) = SL.slice_list_append burrow_slices auctions auctions.queued_slices QueueBack contents in
+    let auctions = SL.slice_list_to_auction_state auctions burrow_slices in
 
     (auctions, ret)
 
@@ -116,13 +122,13 @@ let split_liquidation_slice_contents (amnt: tok) (contents: liquidation_slice_co
       let min_kit_for_unwarranted = kit_to_denomination_nat contents_min_kit_for_unwarranted in
       let lkit =
         kit_of_fraction_ceil
-          (mul_nat_int min_kit_for_unwarranted (tok_to_denomination_int ltok))
-          (mul_int_int kit_scaling_factor_int slice_tok)
+          (min_kit_for_unwarranted * (tok_to_denomination_int ltok))
+          (kit_scaling_factor_int * slice_tok)
       in
       let rkit =
         kit_of_fraction_ceil
-          (mul_nat_int min_kit_for_unwarranted (tok_to_denomination_int rtok))
-          (mul_int_int kit_scaling_factor_int slice_tok)
+          (min_kit_for_unwarranted * (tok_to_denomination_int rtok))
+          (kit_scaling_factor_int * slice_tok)
       in
       (Some lkit, Some rkit) in
   ( { burrow = contents_burrow; tok = ltok; min_kit_for_unwarranted = lkit; },
@@ -139,21 +145,21 @@ let take_with_splitting (auctions: liquidation_auctions) (split_threshold: tok) 
   let auctions = if lt_tok_tok queued_amount split_threshold
     then
       (* split next thing *)
-      let next = slice_list_from_queue_head auctions in
+      let next = SL.slice_list_from_queue_head auctions in
       match next with
       (* Case: there is a slice to split *)
       | Some (element, burrow_slices) ->
         (* Split the contents *)
         let (part1_contents, part2_contents) =
-          split_liquidation_slice_contents (tok_sub split_threshold queued_amount) (slice_list_element_contents element) in
+          split_liquidation_slice_contents (tok_sub split_threshold queued_amount) (SL.slice_list_element_contents element) in
         (* Remove the element we are splitting *)
-        let auctions, burrow_slices, _, _ = slice_list_remove burrow_slices auctions element in
+        let auctions, burrow_slices, _, _ = SL.slice_list_remove burrow_slices auctions element in
         (* Push the first portion of the slice to the back of the new auction *)
-        let auctions, burrow_slices, _ = slice_list_append burrow_slices auctions new_auction QueueBack part1_contents in
+        let auctions, burrow_slices, _ = SL.slice_list_append burrow_slices auctions new_auction QueueBack part1_contents in
         (* Push the remainder of the slice to the front of the auction queue *)
-        let auctions, burrow_slices, _ = slice_list_append burrow_slices auctions queued_slices QueueFront part2_contents in
+        let auctions, burrow_slices, _ = SL.slice_list_append burrow_slices auctions queued_slices QueueFront part2_contents in
         (* Update auction state *)
-        slice_list_to_auction_state auctions burrow_slices
+        SL.slice_list_to_auction_state auctions burrow_slices
       (* Case: no more slices in queue, nothing to split *)
       | None -> auctions
     else
@@ -163,19 +169,19 @@ let take_with_splitting (auctions: liquidation_auctions) (split_threshold: tok) 
   (auctions, new_auction)
 
 let start_liquidation_auction_if_possible
-    (start_price: ratio) (auctions: liquidation_auctions): liquidation_auctions =
+    (start_price: Common.ratio) (auctions: liquidation_auctions): liquidation_auctions =
   match auctions.current_auction with
   | Some _ -> auctions
   | None ->
     let queued_amount = avl_tok auctions.avl_storage auctions.queued_slices in
     let split_threshold =
       (* split_threshold = max (max_lot_size, FLOOR(queued_amount * min_lot_auction_queue_fraction)) *)
-      let { num = num_qf; den = den_qf; } = min_lot_auction_queue_fraction in
+      let { num = num_qf; den = den_qf; } = Constants.min_lot_auction_queue_fraction in
       tok_max
-        max_lot_size
-        (tok_of_fraction_floor
-           (mul_nat_int (tok_to_denomination_nat queued_amount) num_qf)
-           (mul_int_int tok_scaling_factor_int den_qf)
+        Constants.max_lot_size
+        (Tok.tok_of_fraction_floor
+           ((Tok.tok_to_denomination_nat queued_amount) * num_qf)
+           (Tok.tok_scaling_factor_int * den_qf)
         ) in
     let (auctions, new_auction) = take_with_splitting auctions split_threshold in
     if avl_is_empty auctions.avl_storage new_auction
@@ -193,8 +199,8 @@ let start_liquidation_auction_if_possible
       let start_value =
         let { num = num_sp; den = den_sp; } = start_price in
         kit_of_fraction_ceil
-          (mul_nat_int (tok_to_denomination_nat (avl_tok auctions.avl_storage new_auction)) den_sp)
-          (mul_int_int tok_scaling_factor_int num_sp)
+          ((tok_to_denomination_nat (avl_tok auctions.avl_storage new_auction)) * den_sp)
+          (tok_scaling_factor_int * num_sp)
       in
       let current_auction =
         Some
@@ -212,16 +218,16 @@ let liquidation_auction_current_auction_minimum_bid (auction: current_liquidatio
   kit_max (kit_of_denomination (1n))
     (match auction.state with
      | Descending (start_value, start_time) ->
-       let auction_decay_rate = fixedpoint_of_ratio_ceil auction_decay_rate in
+       let auction_decay_rate = FixedPoint.fixedpoint_of_ratio_ceil Constants.auction_decay_rate in
        let now = Tezos.get_now () in
-       let time_passed = sub_timestamp_timestamp now start_time in
+       let time_passed = now - start_time in
        let seconds_passed = abs time_passed in
 
-       let decay = fixedpoint_pow (fixedpoint_sub fixedpoint_one auction_decay_rate) seconds_passed in
+       let decay = FixedPoint.fixedpoint_pow (FixedPoint.fixedpoint_sub FixedPoint.fixedpoint_one auction_decay_rate) seconds_passed in
        kit_scale start_value decay
      | Ascending (leading_bid, _timestamp, _level) ->
-       let bid_improvement_factor = fixedpoint_of_ratio_floor bid_improvement_factor in
-       kit_scale leading_bid.kit (fixedpoint_add fixedpoint_one bid_improvement_factor))
+       let bid_improvement_factor = FixedPoint.fixedpoint_of_ratio_floor Constants.bid_improvement_factor in
+       Kit.kit_scale leading_bid.kit (FixedPoint.fixedpoint_add FixedPoint.fixedpoint_one bid_improvement_factor))
 
 (** Check if an auction is complete. A descending auction declines
   * exponentially over time, so it is effectively never complete (George: I
@@ -234,12 +240,12 @@ let is_liquidation_auction_complete
   | Descending _ ->
     (None: bid option)
   | Ascending (b, t, h) ->
-    if gt_int_int
-        (sub_timestamp_timestamp (Tezos.get_now ()) t)
-        max_bid_interval_in_seconds
-    && gt_int_int
-         (sub_nat_nat (Tezos.get_level ()) h)
-         (int max_bid_interval_in_blocks)
+    if ((Tezos.get_now ()) - t)
+        >
+        Constants.max_bid_interval_in_seconds
+    && ((Tezos.get_level ()) - h)
+        >
+        (int Constants.max_bid_interval_in_blocks)
     then Some b
     else (None: bid option)
 
@@ -333,9 +339,9 @@ let liquidation_auction_get_current_auction (auctions: liquidation_auctions) : c
  * returns the contents of the removed slice, the tree root the slice belonged to, and the updated auctions
 *)
 let pop_slice (auctions: liquidation_auctions) (leaf_ptr: leaf_ptr): liquidation_slice_contents * avl_ptr * liquidation_auctions =
-  let element, burrow_slices = slice_list_from_leaf_ptr auctions leaf_ptr in
-  let auctions, burrow_slices, root_ptr, contents = slice_list_remove burrow_slices auctions element in
-  let auctions = slice_list_to_auction_state auctions burrow_slices in
+  let element, burrow_slices = SL.slice_list_from_leaf_ptr auctions leaf_ptr in
+  let auctions, burrow_slices, root_ptr, contents = SL.slice_list_remove burrow_slices auctions element in
+  let auctions = SL.slice_list_to_auction_state auctions burrow_slices in
 
   ( contents
   , root_ptr
@@ -477,7 +483,7 @@ let liquidation_auctions_pop_completed_slice (auctions: liquidation_auctions) (l
 
   sold_tok, auctions
 
-let liquidation_auction_touch (auctions: liquidation_auctions) (price: ratio) : liquidation_auctions =
+let liquidation_auction_touch (auctions: liquidation_auctions) (price: Common.ratio) : liquidation_auctions =
 
   let auctions =
     (start_liquidation_auction_if_possible price

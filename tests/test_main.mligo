@@ -10,6 +10,7 @@
 #import "./ratio.mligo" "Ratio"
 #import "./kit.mligo" "KitTest"
 #import "./cfmm.mligo" "CFMMTest"
+#import "./checker.mligo" "CheckerTest"
 
 type level = Breath.Logger.level
 
@@ -253,6 +254,7 @@ let () =
   Breath.Model.run_suites Void [
     Breath.Model.suite "Tests for burrows" Burrow.suite;
     Breath.Model.suite "Tests for kit" KitTest.suite;
-    Breath.Model.suite "Tests for CFMM" CFMMTest.suite
+    Breath.Model.suite "Tests for CFMM" CFMMTest.suite;
+    Breath.Model.suite "Tests for Checker" CheckerTest.suite
   ]
 

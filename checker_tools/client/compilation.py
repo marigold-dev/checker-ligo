@@ -15,7 +15,7 @@ WCTEZ_VIEWS_PAT = (
     r"let view_(\S+) *\([^:]*: *(.*) \* (wctez_state)\) *: *([^=]*)"
 )
 CHECKER_VIEWS_PAT = (
-    r"let wrapper_view_(\S+) *\([^:]*: *(.*) \* (wrapper)\) *: *([^=]*)"
+    r"let wrapper_view_(\S+) *\([^:]*: *(.*) \* (CheckerT.wrapper)\) *: *([^=]*)"
 )
 CHECKER_ENTRYPOINTS_PAT = r"let lazy_id_(\S+) *= \(*(\d*)\)"
 
@@ -137,7 +137,7 @@ def parallel_compile_views(src_file: Path, views, prefix="_view"):
 
 
 def parallel_compile_entrypoints(main_file: Path, entrypoints):
-    prefix = "Bytes.pack lazy_fun_"
+    prefix = "Bytes.pack Entrypoints.lazy_fun_"
     rows = "; ".join(
         [f"x{i} = {prefix + ent_name}" for (i, ent_name) in entrypoints]
     )
@@ -206,7 +206,7 @@ def compile_checker(*, main_file: Path, entrypoints_file: Path):
         main_file=main_file,
         views_file=entrypoints_file,
         pattern=CHECKER_VIEWS_PAT,
-        prefix="wrapper_view_",
+        prefix="Entrypoints.wrapper_view_",
     )
     entrypoints = compile_entrypoints(
         main_file=main_file, entrypoints_file=entrypoints_file
@@ -237,7 +237,7 @@ def wctez_views(*, main_file: Path, views_file: Path):
 def compile_everything(*, out_dir:str="generated/michelson",
                        src_dir:str="src/",
                        vendor_dir:str="vendor/"):
-    checkerMain = os.path.join(src_dir, "main.mligo")
+    checkerMain = os.path.join(src_dir, "checkerMain.mligo")
     mockFA2Main = os.path.join(src_dir, "mockFA2Main.mligo")
     mockFA2Views = os.path.join(src_dir, "mockFA2.mligo")
     wtezMain = os.path.join(src_dir, "wtezMain.mligo")
@@ -274,20 +274,20 @@ def compile_everything(*, out_dir:str="generated/michelson",
     mockFA2_metadata = mockFA2_views(
         main_file=mockFA2Main, views_file=mockFA2Views
     )
-    wtez_metadata = wtez_views(main_file=wtezMain, views_file=wtezViews)
-    wctez_metadata = wctez_views(main_file=wctezMain, views_file=wctezViews)
-    checker_functions = compile_checker(
-        main_file=checkerMain, entrypoints_file=os.path.join(src_dir, "checkerEntrypoints.mligo")
-    )
     with open(os.path.join(out_dir, "mock_fa2_metadata.json"), "w") as f:
         json.dump(mockFA2_metadata, f, indent=2)
 
+    wtez_metadata = wtez_views(main_file=wtezMain, views_file=wtezViews)
     with open(os.path.join(out_dir, "wtez_metadata.json"), "w") as f:
         json.dump(wtez_metadata, f, indent=2)
 
+    wctez_metadata = wctez_views(main_file=wctezMain, views_file=wctezViews)
     with open(os.path.join(out_dir, "wctez_metadata.json"), "w") as f:
         json.dump(wctez_metadata, f, indent=2)
 
+    checker_functions = compile_checker(
+        main_file=checkerMain, entrypoints_file=os.path.join(src_dir, "checkerEntrypoints.mligo")
+    )
     with open(os.path.join(out_dir, "functions.json"), "w") as f:
         json.dump(checker_functions, f, indent=2)
 

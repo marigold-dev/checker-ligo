@@ -1,15 +1,21 @@
+#import "./vaultTypes.mligo" "Vault"
+#import "./fa2Ledger.mligo" "FA2"
+#import "./common.mligo" "Common"
+#import "./tokenMetadata.mligo" "Tokens"
+#include "./error.mligo"
+
 (** Originate a vault contract with no delegate and zero tez. This way we can
   * originate vaults pretty easily, everytime we look one up: if it's not
   * there, just originate it now. *)
 [@inline] let originate_vault (owner: address) : operation * address =
   Tezos.create_contract
-    (fun (p: vault_parameter) (storage: vault_storage) ->
+    (fun (p: Vault.vault_parameter) (storage: Vault.vault_storage) ->
        match p with
        | Vault_set_delegate kho ->
          if (Tezos.get_amount ()) <> 0mutez then
-           (failwith ((-1)) : operation list * vault_storage) (* unwanted tez *)
+           (failwith ((-1)) : operation list * Vault.vault_storage) (* unwanted tez *)
          else if (Tezos.get_sender ()) <> storage.owner then
-           (failwith ((-2)) : operation list * vault_storage) (* unauthorized *)
+           (failwith ((-2)) : operation list * Vault.vault_storage) (* unauthorized *)
          else
            ([Tezos.set_delegate kho], storage)
        | Vault_receive_tez () ->
@@ -17,9 +23,9 @@
          (([]: operation list), storage)
        | Vault_send_tez_to_vault tz_recipient ->
          if (Tezos.get_amount ()) <> 0mutez then
-           (failwith ((-3)) : operation list * vault_storage) (* unwanted tez *)
+           (failwith ((-3)) : operation list * Vault.vault_storage) (* unwanted tez *)
          else if (Tezos.get_sender ()) <> storage.owner then
-           (failwith ((-4)) : operation list * vault_storage) (* unauthorized *)
+           (failwith ((-4)) : operation list * Vault.vault_storage) (* unauthorized *)
          else
            let tz, recipient = tz_recipient in
            let op = match (Tezos.get_entrypoint_opt "%vault_receive_tez" recipient : unit contract option) with
@@ -28,9 +34,9 @@
            ([op], storage)
        | Vault_send_tez_to_contract tz_recipient ->
          if (Tezos.get_amount ()) <> 0mutez then
-           (failwith ((-5)) : operation list * vault_storage) (* unwanted tez *)
+           (failwith ((-5)) : operation list * Vault.vault_storage) (* unwanted tez *)
          else if (Tezos.get_sender ()) <> storage.owner then
-           (failwith ((-6)) : operation list * vault_storage) (* unauthorized *)
+           (failwith ((-6)) : operation list * Vault.vault_storage) (* unauthorized *)
          else
            let tz, recipient = tz_recipient in
            let op = match (Tezos.get_contract_opt recipient : unit contract option) with
@@ -50,7 +56,7 @@
 type vault_map = (address, address) big_map
 
 type wtez_state =
-  { fa2_state : fa2_state;
+  { fa2_state : FA2.fa2_state;
     total_token : nat;
     vaults : vault_map;
     metadata: (string, bytes) big_map;
@@ -58,7 +64,7 @@ type wtez_state =
 
 (** Make a fresh state. *)
 let initial_wtez () =
-  { fa2_state = initial_fa2_state;
+  { fa2_state = FA2.initial_fa2_state;
     total_token = 0n;
     vaults = (Big_map.empty: (address, address) big_map);
     metadata = (Big_map.empty: (string, bytes) big_map);
@@ -66,9 +72,9 @@ let initial_wtez () =
 
 type wtez_params =
   (* FA2 entrypoints *)
-  | Balance_of of fa2_balance_of_param
-  | Transfer of fa2_transfer list
-  | Update_operators of fa2_update_operator list
+  | Balance_of of FA2.fa2_balance_of_param
+  | Transfer of FA2.fa2_transfer list
+  | Update_operators of FA2.fa2_update_operator list
   (* Wrapper-specific entrypoints *)
   | Deposit of unit (* TODO: not nice, having a unit type. Perhaps pass the tez as a number too? *)
   | Withdraw of tez
@@ -95,35 +101,35 @@ type vault_found = VaultFound | VaultNotFound
 (*****************************************************************************)
 
 [@inline] let ledger_issue_tez_token
-    (st, addr, amnt: fa2_state * address * tez) : fa2_state =
-  ledger_issue (st, wtez_token_id, addr, tez_to_mutez_nat amnt)
+    (st, addr, amnt: FA2.fa2_state * address * tez) : FA2.fa2_state =
+  FA2.ledger_issue (st, Tokens.wtez_token_id, addr, amnt / 1mutez)
 
 [@inline] let ledger_withdraw_tez_token
-    (st, addr, amnt: fa2_state * address * tez) : fa2_state =
-  ledger_withdraw (st, wtez_token_id, addr, tez_to_mutez_nat amnt)
+    (st, addr, amnt: FA2.fa2_state * address * tez) : FA2.fa2_state =
+  FA2.ledger_withdraw (st, Tokens.wtez_token_id, addr, amnt / 1mutez)
 
 (*****************************************************************************)
 (**                        {1 FA2 ENTRYPOINTS}                               *)
 (*****************************************************************************)
 
-[@inline] let fa2_get_balance (st, owner, token_id: fa2_state * address * fa2_token_id): nat =
+[@inline] let fa2_get_balance (st, owner, token_id: FA2.fa2_state * address * FA2.fa2_token_id): nat =
   let ledger = st.ledger in
   let key = (token_id, owner) in
-  let () = if token_id = wtez_token_id then () else failwith "FA2_TOKEN_UNDEFINED" in
-  get_fa2_ledger_value ledger key
+  let () = if token_id = Tokens.wtez_token_id then () else failwith "FA2_TOKEN_UNDEFINED" in
+  FA2.get_fa2_ledger_value ledger key
 
-[@inline] let fa2_run_balance_of (st, xs: fa2_state * fa2_balance_of_request list)
-  : fa2_balance_of_response list =
+[@inline] let fa2_run_balance_of (st, xs: FA2.fa2_state * FA2.fa2_balance_of_request list)
+  : FA2.fa2_balance_of_response list =
   List.map
-    (fun (req: fa2_balance_of_request) ->
-       let { owner = owner; token_id = token_id; } : fa2_balance_of_request = req in
+    (fun (req: FA2.fa2_balance_of_request) ->
+       let { owner = owner; token_id = token_id; } : FA2.fa2_balance_of_request = req in
        let blnc = fa2_get_balance (st, owner, token_id) in
        { request=req; balance = blnc; }
     )
     xs
 
-[@inline] let balance_of (state: wtez_state) (param: fa2_balance_of_param) : operation list * wtez_state =
-  let _ = ensure_no_tez_given () in
+[@inline] let balance_of (state: wtez_state) (param: FA2.fa2_balance_of_param) : operation list * wtez_state =
+  let _ = Common.ensure_no_tez_given () in
   let { requests = requests; callback = callback; } = param in
   let response = fa2_run_balance_of (state.fa2_state, requests) in
   let op = Tezos.transaction response (0mutez) callback in
@@ -135,10 +141,10 @@ type vault_found = VaultFound | VaultNotFound
     ([] : operation list)
     ops
 
-[@inline] let fa2_run_transfer (st, xs: wtez_state * fa2_transfer list) : wtez_state * operation list =
+[@inline] let fa2_run_transfer (st, xs: wtez_state * FA2.fa2_transfer list) : wtez_state * operation list =
   let state, rev_ops =
     List.fold_left
-      (fun (((st, ops), tx): (wtez_state * operation list) * fa2_transfer) ->
+      (fun (((st, ops), tx): (wtez_state * operation list) * FA2.fa2_transfer) ->
          let { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } = st in (* deconstruct *)
          let { from_ = from_; txs = txs; } = tx in
 
@@ -147,16 +153,16 @@ type vault_found = VaultFound | VaultNotFound
          let st = { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } in (* reconstruct *)
 
          List.fold_left
-           (fun (((st, ops), x): (wtez_state * operation list) * fa2_transfer_destination) ->
+           (fun (((st, ops), x): (wtez_state * operation list) * FA2.fa2_transfer_destination) ->
               let { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } = st in (* deconstruct *)
               let { to_ = to_; token_id = token_id; amount = amnt; } = x in
 
-              if fa2_is_operator (fa2_state, (Tezos.get_sender ()), from_, token_id)
+              if FA2.fa2_is_operator (fa2_state, (Tezos.get_sender ()), from_, token_id)
               then
                 (* FA2-related changes *)
-                let () = if token_id = wtez_token_id then () else failwith "FA2_TOKEN_UNDEFINED" in
-                let fa2_state = ledger_withdraw (fa2_state, token_id, from_, amnt) in
-                let fa2_state = ledger_issue (fa2_state, token_id, to_, amnt) in
+                let () = if token_id = Tokens.wtez_token_id then () else failwith "FA2_TOKEN_UNDEFINED" in
+                let fa2_state = FA2.ledger_withdraw (fa2_state, token_id, from_, amnt) in
+                let fa2_state = FA2.ledger_issue (fa2_state, token_id, to_, amnt) in
                 (* Origination of the to_ vault, if needed *)
                 let _to_vault_found, ops, vaults, to_vault_address = find_vault_address_append vaults to_ ops in
                 (* Instruct the from_ vault to send the actual tez to the to_ vault *)
@@ -164,13 +170,13 @@ type vault_found = VaultFound | VaultNotFound
                   | VaultFound -> begin
                       (* Case 1: the vault for from_ exists already; make a direct call *)
                       match (Tezos.get_entrypoint_opt "%vault_send_tez_to_vault" from_vault_address : (tez * address) contract option) with
-                      | Some c -> Tezos.transaction (tez_of_mutez_nat amnt, to_vault_address) (0mutez) c
+                      | Some c -> Tezos.transaction (amnt * 1mutez, to_vault_address) (0mutez) c
                       | None -> (failwith error_GetEntrypointOptFailureVaultSendTezToVault : operation)
                     end
                   | VaultNotFound -> begin
                       (* Case 2: the vault for from_ does not exist already; make an indirect call (more expensive) *)
                       match (Tezos.get_entrypoint_opt "%call_vault_send_tez_to_vault" (Tezos.get_self_address ()) : (address * tez * address) contract option) with
-                      | Some c -> Tezos.transaction (from_vault_address, tez_of_mutez_nat amnt, to_vault_address) (0mutez) c
+                      | Some c -> Tezos.transaction (from_vault_address, amnt * 1tez, to_vault_address) (0mutez) c
                       | None -> (failwith error_GetEntrypointOptFailureCallVaultSendTezToVault : operation)
                     end in
                 let ops = (op :: ops) in
@@ -187,15 +193,15 @@ type vault_found = VaultFound | VaultNotFound
       xs in
   (state, reverse_op_list rev_ops)
 
-[@inline] let transfer (state: wtez_state) (xs: fa2_transfer list) : operation list * wtez_state =
-  let _ = ensure_no_tez_given () in
+[@inline] let transfer (state: wtez_state) (xs: FA2.fa2_transfer list) : operation list * wtez_state =
+  let _ = Common.ensure_no_tez_given () in
   let state, ops = fa2_run_transfer (state, xs) in
   (ops, state)
 
 [@inline] let fa2_run_update_operators
-    (st, xs: fa2_state * fa2_update_operator list) : fa2_state =
+    (st, xs: FA2.fa2_state * FA2.fa2_update_operator list) : FA2.fa2_state =
   List.fold_left
-    (fun ((st : fa2_state), (x : fa2_update_operator)) ->
+    (fun ((st : FA2.fa2_state), (x : FA2.fa2_update_operator)) ->
        match x with
        | Add_operator op ->
          let { owner = owner;
@@ -205,7 +211,7 @@ type vault_found = VaultFound | VaultNotFound
          (* The standard does not specify who is permitted to update operators. We restrict
             it only to the owner. *)
          if owner <> (Tezos.get_sender ())
-         then (failwith "FA2_NOT_OWNER" : fa2_state)
+         then (failwith "FA2_NOT_OWNER" : FA2.fa2_state)
          else
            { st  with
              operators =
@@ -220,7 +226,7 @@ type vault_found = VaultFound | VaultNotFound
                token_id = token_id;
              } = op in
          if owner <> (Tezos.get_sender ())
-         then (failwith "FA2_NOT_OWNER" : fa2_state)
+         then (failwith "FA2_NOT_OWNER" : FA2.fa2_state)
          else
            { st  with
              operators =
@@ -232,8 +238,8 @@ type vault_found = VaultFound | VaultNotFound
     st
     xs
 
-[@inline] let update_operators (state: wtez_state) (xs: fa2_update_operator list) : operation list * wtez_state =
-  let _ = ensure_no_tez_given () in
+[@inline] let update_operators (state: wtez_state) (xs: FA2.fa2_update_operator list) : operation list * wtez_state =
+  let _ = Common.ensure_no_tez_given () in
   let { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } = state in (* deconstruct *)
   let fa2_state = fa2_run_update_operators (fa2_state, xs) in
   let state = { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } in (* reconstruct *)
@@ -245,8 +251,8 @@ type vault_found = VaultFound | VaultNotFound
 
 [@inline] let deposit (state: wtez_state) (_: unit) : operation list * wtez_state =
   let { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } = state in (* deconstruct *)
-  let fa2_state = ledger_issue_tez_token (fa2_state, (Tezos.get_sender ()), (Tezos.get_amount ())) in
-  let total_token = add_nat_nat total_token (tez_to_mutez_nat (Tezos.get_amount ())) in
+  let fa2_state = ledger_issue_tez_token (fa2_state, Tezos.get_sender (), Tezos.get_amount ()) in
+  let total_token = total_token + (Tezos.get_amount () / 1mutez) in
   match Big_map.find_opt (Tezos.get_sender ()) vaults with
   | Some vault_address ->
     (* Case 1: The vault already exists. We can just deposit the tez into it
@@ -270,10 +276,10 @@ type vault_found = VaultFound | VaultNotFound
 
 [@inline] let withdraw (state: wtez_state) (amnt: tez) : operation list * wtez_state =
   let { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } = state in (* deconstruct *)
-  let _ = ensure_no_tez_given () in
+  let _ = Common.ensure_no_tez_given () in
   let fa2_state = ledger_withdraw_tez_token (fa2_state, (Tezos.get_sender ()), amnt) in
   let total_token =
-    match is_nat (sub_nat_nat total_token (tez_to_mutez_nat amnt)) with
+    match is_nat (total_token - (amnt / 1mutez)) with
     | None -> (failwith "FA2_INSUFFICIENT_BALANCE" : nat)
     | Some tt -> tt in
   match Big_map.find_opt (Tezos.get_sender ()) vaults with
@@ -299,7 +305,7 @@ type vault_found = VaultFound | VaultNotFound
 
 [@inline] let set_delegate (state: wtez_state) (kho: key_hash option) : operation list * wtez_state =
   let { fa2_state = fa2_state; total_token = total_token; vaults = vaults; metadata = metadata; } = state in (* deconstruct *)
-  let _ = ensure_no_tez_given () in
+  let _ = Common.ensure_no_tez_given () in
   match Big_map.find_opt (Tezos.get_sender ()) vaults with
   | Some vault_address ->
     (* Case 1: The vault already exists. We can just instruct it to set its own
@@ -384,17 +390,17 @@ let main (op, state: wtez_params * wtez_state): operation list * wtez_state =
 (**                       {1 OFFLINE FA2 VIEWS}                              *)
 (*****************************************************************************)
 
-let view_get_balance ((owner, token_id), state: (address * fa2_token_id) * wtez_state) : nat =
+let view_get_balance ((owner, token_id), state: (address * FA2.fa2_token_id) * wtez_state) : nat =
   fa2_get_balance (state.fa2_state, owner, token_id)
 
-let view_total_supply (token_id, state: fa2_token_id * wtez_state) : nat =
-  if token_id = wtez_token_id then
+let view_total_supply (token_id, state: FA2.fa2_token_id * wtez_state) : nat =
+  if token_id = Tokens.wtez_token_id then
     state.total_token
   else
     failwith "FA2_TOKEN_UNDEFINED"
 
-let view_all_tokens ((), _state: unit * wtez_state) : fa2_token_id list =
-  [ wtez_token_id ]
+let view_all_tokens ((), _state: unit * wtez_state) : FA2.fa2_token_id list =
+  [ Tokens.wtez_token_id ]
 
-let view_is_operator ((owner, (operator, token_id)), state: (address * (address * fa2_token_id)) * wtez_state) : bool =
-  fa2_is_operator (state.fa2_state, operator, owner, token_id)
+let view_is_operator ((owner, (operator, token_id)), state: (address * (address * FA2.fa2_token_id)) * wtez_state) : bool =
+  FA2.fa2_is_operator (state.fa2_state, operator, owner, token_id)

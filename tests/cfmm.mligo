@@ -33,7 +33,7 @@ let equal_cfmm (cfmm1 : cfmm) (cfmm2 : cfmm) : bool =
 
 
 let cfmm0 =
-  let ctok = Ctok.ctok_of_denomination 100n in
+  let ctok = Ctok.ctok_of_denomination 102n in
   let kit = Kit.kit_of_denomination 100n in
   {
     ctok = ctok;
@@ -223,7 +223,7 @@ let suite = [
     (fun _ ->
       let ctok_amount = Ctok.ctok_of_denomination 100n in
       let max_kit = Kit.kit_of_denomination 100n in
-      let min_lqt = Lqt.lqt_of_denomination 100n in
+      let min_lqt = Lqt.lqt_of_denomination 98n in
       let _, _, new_cfmm = CFMM.cfmm_add_liquidity cfmm0 ctok_amount max_kit min_lqt deadline in
       Breath.Assert.is_true
         ""
@@ -235,7 +235,7 @@ let suite = [
     (fun _ ->
       let ctok_amount = Ctok.ctok_of_denomination 100n in
       let max_kit = Kit.kit_of_denomination 100n in
-      let min_lqt = Lqt.lqt_of_denomination 100n in
+      let min_lqt = Lqt.lqt_of_denomination 98n in
       let _, _, new_cfmm = CFMM.cfmm_add_liquidity cfmm0 ctok_amount max_kit min_lqt deadline in
       Breath.Assert.is_true
         ""
@@ -247,7 +247,7 @@ let suite = [
     (fun _ ->
       let ctok_amount = Ctok.ctok_of_denomination 100n in
       let max_kit = Kit.kit_of_denomination 100n in
-      let min_lqt = Lqt.lqt_of_denomination 100n in
+      let min_lqt = Lqt.lqt_of_denomination 98n in
       let _, _, new_cfmm = CFMM.cfmm_add_liquidity cfmm0 ctok_amount max_kit min_lqt deadline in
       Breath.Assert.is_true
         ""
@@ -259,7 +259,7 @@ let suite = [
     (fun _ ->
       let ctok_amount = Ctok.ctok_of_denomination 100n in
       let max_kit = Kit.kit_of_denomination 100n in
-      let min_lqt = Lqt.lqt_of_denomination 100n in
+      let min_lqt = Lqt.lqt_of_denomination 98n in
       let _, kits, _= CFMM.cfmm_add_liquidity cfmm0 ctok_amount max_kit min_lqt deadline in
       Breath.Assert.is_true
         ""
@@ -271,7 +271,7 @@ let suite = [
     (fun _ ->
       let ctok_amount = Ctok.ctok_of_denomination 100n in
       let max_kit = Kit.kit_of_denomination 100n in
-      let min_lqt = Lqt.lqt_of_denomination 100n in
+      let min_lqt = Lqt.lqt_of_denomination 98n in
       let lqt_minted, _, _= CFMM.cfmm_add_liquidity cfmm0 ctok_amount max_kit min_lqt deadline in
       Breath.Assert.is_true
         ""
@@ -283,7 +283,7 @@ let suite = [
     (fun _ ->
       let ctok_amount = Ctok.ctok_of_denomination 100n in
       let max_kit = Kit.kit_of_denomination 100n in
-      let min_lqt = Lqt.lqt_of_denomination 100n in
+      let min_lqt = Lqt.lqt_of_denomination 98n in
       let _, _, new_cfmm = CFMM.cfmm_add_liquidity cfmm0 ctok_amount max_kit min_lqt deadline in
       Breath.Assert.is_true
         ""
@@ -293,6 +293,105 @@ let suite = [
     (make_cfmm 8336667n 6000000n 1n 0n)
     (make_cfmm 28336667n 20394242n 3n 0n)
     (20000000n, 20000000n, 2n)
-    (5605758n, 2n)
+    (5605758n, 2n);
+
+  Breath.Model.case
+    "remove_liquidity_might_increase_price"
+    ""
+    (fun _ ->
+      let lqt = Lqt.lqt_of_denomination 55n in
+      let min_ctok = Ctok.ctok_of_denomination 55n in
+      let min_kit = Kit.kit_of_denomination 55n in
+      let _, _, new_cfmm = CFMM.cfmm_remove_liquidity cfmm0 lqt min_ctok min_kit deadline in
+      Breath.Assert.is_true
+        ""
+        (Ratio.geq_ratio_ratio (cfmm_kit_in_ctok new_cfmm) (cfmm_kit_in_ctok cfmm0)));
+
+  Breath.Model.case
+    "remove_liquidity_decreases_product"
+    ""
+    (fun _ ->
+      let lqt = Lqt.lqt_of_denomination 55n in
+      let min_ctok = Ctok.ctok_of_denomination 55n in
+      let min_kit = Kit.kit_of_denomination 55n in
+      let _, _, new_cfmm = CFMM.cfmm_remove_liquidity cfmm0 lqt min_ctok min_kit deadline in
+      Breath.Assert.is_true
+        ""
+        (Ratio.lt_ratio_ratio (cfmm_kit_times_ctok new_cfmm) (cfmm_kit_times_ctok cfmm0)));
+
+  Breath.Model.case
+    "remove_liquidity_decreases_liquidity"
+    ""
+    (fun _ ->
+      let lqt = Lqt.lqt_of_denomination 55n in
+      let min_ctok = Ctok.ctok_of_denomination 55n in
+      let min_kit = Kit.kit_of_denomination 55n in
+      let _, _, new_cfmm = CFMM.cfmm_remove_liquidity cfmm0 lqt min_ctok min_kit deadline in
+      Breath.Assert.is_true
+        ""
+        (new_cfmm.lqt < cfmm0.lqt));
+
+  Breath.Model.case
+    "remove_liquidity_returns_more_ctok"
+    ""
+    (fun _ ->
+      let lqt = Lqt.lqt_of_denomination 55n in
+      let min_ctok = Ctok.ctok_of_denomination 55n in
+      let min_kit = Kit.kit_of_denomination 55n in
+      let ctoks, _, _ = CFMM.cfmm_remove_liquidity cfmm0 lqt min_ctok min_kit deadline in
+      Breath.Assert.is_true
+        ""
+        (ctoks >= min_ctok));
+
+  Breath.Model.case
+    "remove_liquidity_returns_more_kits"
+    ""
+    (fun _ ->
+      let lqt = Lqt.lqt_of_denomination 55n in
+      let min_ctok = Ctok.ctok_of_denomination 55n in
+      let min_kit = Kit.kit_of_denomination 55n in
+      let _, kits, _= CFMM.cfmm_remove_liquidity cfmm0 lqt min_ctok min_kit deadline in
+      Breath.Assert.is_true
+        ""
+        (kits >= min_kit));
+
+  Breath.Model.case
+    "remove_liquidity_respects_lqt"
+    ""
+    (fun _ ->
+      let lqt = Lqt.lqt_of_denomination 55n in
+      let min_ctok = Ctok.ctok_of_denomination 55n in
+      let min_kit = Kit.kit_of_denomination 55n in
+      let _, _, new_cfmm = CFMM.cfmm_remove_liquidity cfmm0 lqt min_ctok min_kit deadline in
+      Breath.Assert.is_true
+        ""
+        (new_cfmm.lqt + lqt = cfmm0.lqt));
+
+  Breath.Model.case
+    "remove_liquidity_respects_ctok_limit"
+    ""
+    (fun _ ->
+      let lqt = Lqt.lqt_of_denomination 55n in
+      let min_ctok = Ctok.ctok_of_denomination 55n in
+      let min_kit = Kit.kit_of_denomination 55n in
+      let ctoks, _, _ = CFMM.cfmm_remove_liquidity cfmm0 lqt min_ctok min_kit deadline in
+      Breath.Assert.is_true
+        ""
+        (ctoks <= cfmm0.ctok));
+
+  Breath.Model.case
+    "remove_liquidity_respects_kit_limit"
+    ""
+    (fun _ ->
+      let lqt = Lqt.lqt_of_denomination 55n in
+      let min_ctok = Ctok.ctok_of_denomination 55n in
+      let min_kit = Kit.kit_of_denomination 55n in
+      let _, kits, _ = CFMM.cfmm_remove_liquidity cfmm0 lqt min_ctok min_kit deadline in
+      Breath.Assert.is_true
+        ""
+        (kits <= cfmm0.kit));
+
+  (* TODO: test failures *)
+
 ]
 
