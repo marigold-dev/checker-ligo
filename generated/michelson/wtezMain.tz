@@ -1,0 +1,952 @@
+{ parameter
+    (or (or (or (or (pair %balance_of
+                       (list %requests (pair (address %owner) (nat %token_id)))
+                       (contract %callback
+                          (list (pair (pair %request (address %owner) (nat %token_id)) (nat %balance)))))
+                    (pair %call_vault_receive_tez address mutez))
+                (or (pair %call_vault_send_tez_to_contract (pair address mutez) address)
+                    (pair %call_vault_send_tez_to_vault (pair address mutez) address)))
+            (or (or (pair %call_vault_set_delegate address (option key_hash)) (unit %deposit))
+                (or (option %set_delegate key_hash)
+                    (list %transfer
+                       (pair (address %from_) (list %txs (pair (address %to_) (nat %token_id) (nat %amount))))))))
+        (or (list %update_operators
+               (or (pair %add_operator (address %owner) (address %operator) (nat %token_id))
+                   (pair %remove_operator (address %owner) (address %operator) (nat %token_id))))
+            (mutez %withdraw))) ;
+  storage
+    (pair (pair (pair %fa2_state
+                   (big_map %ledger (pair nat address) nat)
+                   (big_map %operators (pair (pair address address) nat) unit))
+                (big_map %metadata string bytes))
+          (nat %total_token)
+          (big_map %vaults address address)) ;
+  code { LAMBDA
+           unit
+           unit
+           { DROP ;
+             PUSH mutez 0 ;
+             AMOUNT ;
+             COMPARE ;
+             NEQ ;
+             IF { PUSH int 83 ; FAILWITH } { UNIT } } ;
+         SWAP ;
+         UNPAIR ;
+         IF_LEFT
+           { IF_LEFT
+               { IF_LEFT
+                   { IF_LEFT
+                       { UNIT ;
+                         DIG 3 ;
+                         SWAP ;
+                         EXEC ;
+                         DROP ;
+                         UNPAIR ;
+                         MAP { DUP ;
+                               UNPAIR ;
+                               PUSH nat 2 ;
+                               DUP 3 ;
+                               COMPARE ;
+                               EQ ;
+                               IF {} { PUSH string "FA2_TOKEN_UNDEFINED" ; FAILWITH } ;
+                               DUP 5 ;
+                               CAR ;
+                               CAR ;
+                               CAR ;
+                               SWAP ;
+                               DIG 2 ;
+                               PAIR ;
+                               GET ;
+                               IF_NONE { PUSH nat 0 } {} ;
+                               SWAP ;
+                               PAIR } ;
+                         SWAP ;
+                         PUSH mutez 0 ;
+                         DIG 2 ;
+                         TRANSFER_TOKENS ;
+                         SWAP ;
+                         NIL operation ;
+                         DIG 2 ;
+                         CONS ;
+                         PAIR }
+                       { DIG 2 ;
+                         DROP ;
+                         UNPAIR ;
+                         SELF_ADDRESS ;
+                         SENDER ;
+                         COMPARE ;
+                         NEQ ;
+                         IF { DROP 3 ; PUSH int 111 ; FAILWITH }
+                            { CONTRACT %vault_receive_tez unit ;
+                              IF_NONE
+                                { DROP ; PUSH int 160 ; FAILWITH }
+                                { SWAP ; UNIT ; TRANSFER_TOKENS } ;
+                              SWAP ;
+                              NIL operation ;
+                              DIG 2 ;
+                              CONS ;
+                              PAIR } } }
+                   { DIG 2 ;
+                     DROP ;
+                     IF_LEFT
+                       { UNPAIR ;
+                         UNPAIR ;
+                         SELF_ADDRESS ;
+                         SENDER ;
+                         COMPARE ;
+                         NEQ ;
+                         IF { DROP 4 ; PUSH int 111 ; FAILWITH }
+                            { CONTRACT %vault_send_tez_to_contract (pair mutez address) ;
+                              IF_NONE
+                                { DROP 2 ; PUSH int 162 ; FAILWITH }
+                                { PUSH mutez 0 ; DIG 3 ; DIG 3 ; PAIR ; TRANSFER_TOKENS } ;
+                              SWAP ;
+                              NIL operation ;
+                              DIG 2 ;
+                              CONS ;
+                              PAIR } }
+                       { UNPAIR ;
+                         UNPAIR ;
+                         SELF_ADDRESS ;
+                         SENDER ;
+                         COMPARE ;
+                         NEQ ;
+                         IF { DROP 4 ; PUSH int 111 ; FAILWITH }
+                            { CONTRACT %vault_send_tez_to_vault (pair mutez address) ;
+                              IF_NONE
+                                { DROP 2 ; PUSH int 161 ; FAILWITH }
+                                { PUSH mutez 0 ; DIG 3 ; DIG 3 ; PAIR ; TRANSFER_TOKENS } ;
+                              SWAP ;
+                              NIL operation ;
+                              DIG 2 ;
+                              CONS ;
+                              PAIR } } } }
+               { IF_LEFT
+                   { DIG 2 ;
+                     DROP ;
+                     IF_LEFT
+                       { UNPAIR ;
+                         SELF_ADDRESS ;
+                         SENDER ;
+                         COMPARE ;
+                         NEQ ;
+                         IF { DROP 3 ; PUSH int 111 ; FAILWITH }
+                            { CONTRACT %vault_set_delegate (option key_hash) ;
+                              IF_NONE
+                                { DROP ; PUSH int 163 ; FAILWITH }
+                                { PUSH mutez 0 ; DIG 2 ; TRANSFER_TOKENS } ;
+                              SWAP ;
+                              NIL operation ;
+                              DIG 2 ;
+                              CONS ;
+                              PAIR } }
+                       { DROP ;
+                         UNPAIR ;
+                         UNPAIR ;
+                         DIG 2 ;
+                         UNPAIR ;
+                         AMOUNT ;
+                         SENDER ;
+                         DIG 4 ;
+                         PUSH mutez 1 ;
+                         DIG 3 ;
+                         EDIV ;
+                         IF_NONE { PUSH string "DIV by 0" ; FAILWITH } {} ;
+                         CAR ;
+                         DIG 2 ;
+                         PAIR ;
+                         PUSH nat 2 ;
+                         DUG 2 ;
+                         UNPAIR ;
+                         DUP 3 ;
+                         CAR ;
+                         SWAP ;
+                         DIG 4 ;
+                         PAIR ;
+                         DIG 2 ;
+                         DUP 3 ;
+                         DUP 3 ;
+                         GET ;
+                         IF_NONE { PUSH nat 0 } {} ;
+                         ADD ;
+                         DIG 3 ;
+                         PUSH nat 0 ;
+                         DUP 3 ;
+                         COMPARE ;
+                         EQ ;
+                         IF { SWAP ; DROP ; DUG 2 ; NONE nat ; SWAP ; UPDATE }
+                            { DIG 3 ; DIG 2 ; DIG 3 ; SWAP ; SOME ; SWAP ; UPDATE } ;
+                         UPDATE 1 ;
+                         AMOUNT ;
+                         PUSH mutez 1 ;
+                         SWAP ;
+                         EDIV ;
+                         IF_NONE { PUSH string "DIV by 0" ; FAILWITH } {} ;
+                         CAR ;
+                         DIG 2 ;
+                         ADD ;
+                         DUP 3 ;
+                         SENDER ;
+                         GET ;
+                         IF_NONE
+                           { SELF_ADDRESS ;
+                             PUSH mutez 0 ;
+                             NONE key_hash ;
+                             CREATE_CONTRACT
+                               { parameter
+                                   (or (or (unit %vault_receive_tez) (pair %vault_send_tez_to_contract mutez address))
+                                       (or (pair %vault_send_tez_to_vault mutez address)
+                                           (option %vault_set_delegate key_hash))) ;
+                                 storage address ;
+                                 code { UNPAIR ;
+                                        IF_LEFT
+                                          { IF_LEFT
+                                              { DROP ; NIL operation ; PAIR }
+                                              { PUSH mutez 0 ;
+                                                AMOUNT ;
+                                                COMPARE ;
+                                                NEQ ;
+                                                IF { DROP 2 ; PUSH int -5 ; FAILWITH }
+                                                   { DUP 2 ;
+                                                     SENDER ;
+                                                     COMPARE ;
+                                                     NEQ ;
+                                                     IF { DROP 2 ; PUSH int -6 ; FAILWITH }
+                                                        { UNPAIR ;
+                                                          SWAP ;
+                                                          CONTRACT unit ;
+                                                          IF_NONE
+                                                            { DROP ; PUSH int -7 ; FAILWITH }
+                                                            { SWAP ; UNIT ; TRANSFER_TOKENS } ;
+                                                          SWAP ;
+                                                          NIL operation ;
+                                                          DIG 2 ;
+                                                          CONS ;
+                                                          PAIR } } } }
+                                          { IF_LEFT
+                                              { PUSH mutez 0 ;
+                                                AMOUNT ;
+                                                COMPARE ;
+                                                NEQ ;
+                                                IF { DROP 2 ; PUSH int -3 ; FAILWITH }
+                                                   { DUP 2 ;
+                                                     SENDER ;
+                                                     COMPARE ;
+                                                     NEQ ;
+                                                     IF { DROP 2 ; PUSH int -4 ; FAILWITH }
+                                                        { UNPAIR ;
+                                                          SWAP ;
+                                                          CONTRACT %vault_receive_tez unit ;
+                                                          IF_NONE
+                                                            { DROP ; PUSH int -8 ; FAILWITH }
+                                                            { SWAP ; UNIT ; TRANSFER_TOKENS } ;
+                                                          SWAP ;
+                                                          NIL operation ;
+                                                          DIG 2 ;
+                                                          CONS ;
+                                                          PAIR } } }
+                                              { PUSH mutez 0 ;
+                                                AMOUNT ;
+                                                COMPARE ;
+                                                NEQ ;
+                                                IF { DROP 2 ; PUSH int -1 ; FAILWITH }
+                                                   { DUP 2 ;
+                                                     SENDER ;
+                                                     COMPARE ;
+                                                     NEQ ;
+                                                     IF { DROP 2 ; PUSH int -2 ; FAILWITH }
+                                                        { SWAP ; NIL operation ; DIG 2 ; SET_DELEGATE ; CONS ; PAIR } } } } } } ;
+                             DIG 4 ;
+                             DUP 3 ;
+                             SOME ;
+                             SENDER ;
+                             PAIR 3 ;
+                             SELF_ADDRESS ;
+                             CONTRACT %call_vault_receive_tez (pair address mutez) ;
+                             IF_NONE
+                               { DIG 2 ; DROP ; PUSH int 170 ; FAILWITH }
+                               { PUSH mutez 0 ; AMOUNT ; DIG 5 ; PAIR ; TRANSFER_TOKENS } ;
+                             SWAP ;
+                             UNPAIR 3 ;
+                             UPDATE ;
+                             DIG 3 ;
+                             PAIR ;
+                             DIG 4 ;
+                             DIG 4 ;
+                             PAIR ;
+                             PAIR ;
+                             NIL operation ;
+                             DIG 2 ;
+                             CONS }
+                           { CONTRACT %vault_receive_tez unit ;
+                             IF_NONE { PUSH int 160 ; FAILWITH } { AMOUNT ; UNIT ; TRANSFER_TOKENS } ;
+                             DIG 3 ;
+                             DIG 2 ;
+                             PAIR ;
+                             DIG 3 ;
+                             DIG 3 ;
+                             PAIR ;
+                             PAIR ;
+                             NIL operation } ;
+                         DIG 2 ;
+                         CONS ;
+                         PAIR } }
+                   { IF_LEFT
+                       { DUP 2 ;
+                         UNPAIR ;
+                         UNPAIR ;
+                         DIG 2 ;
+                         UNPAIR ;
+                         UNIT ;
+                         DIG 7 ;
+                         SWAP ;
+                         EXEC ;
+                         DROP ;
+                         DUP 2 ;
+                         SENDER ;
+                         GET ;
+                         IF_NONE
+                           { DIG 5 ;
+                             DROP ;
+                             SELF_ADDRESS ;
+                             PUSH mutez 0 ;
+                             NONE key_hash ;
+                             CREATE_CONTRACT
+                               { parameter
+                                   (or (or (unit %vault_receive_tez) (pair %vault_send_tez_to_contract mutez address))
+                                       (or (pair %vault_send_tez_to_vault mutez address)
+                                           (option %vault_set_delegate key_hash))) ;
+                                 storage address ;
+                                 code { UNPAIR ;
+                                        IF_LEFT
+                                          { IF_LEFT
+                                              { DROP ; NIL operation ; PAIR }
+                                              { PUSH mutez 0 ;
+                                                AMOUNT ;
+                                                COMPARE ;
+                                                NEQ ;
+                                                IF { DROP 2 ; PUSH int -5 ; FAILWITH }
+                                                   { DUP 2 ;
+                                                     SENDER ;
+                                                     COMPARE ;
+                                                     NEQ ;
+                                                     IF { DROP 2 ; PUSH int -6 ; FAILWITH }
+                                                        { UNPAIR ;
+                                                          SWAP ;
+                                                          CONTRACT unit ;
+                                                          IF_NONE
+                                                            { DROP ; PUSH int -7 ; FAILWITH }
+                                                            { SWAP ; UNIT ; TRANSFER_TOKENS } ;
+                                                          SWAP ;
+                                                          NIL operation ;
+                                                          DIG 2 ;
+                                                          CONS ;
+                                                          PAIR } } } }
+                                          { IF_LEFT
+                                              { PUSH mutez 0 ;
+                                                AMOUNT ;
+                                                COMPARE ;
+                                                NEQ ;
+                                                IF { DROP 2 ; PUSH int -3 ; FAILWITH }
+                                                   { DUP 2 ;
+                                                     SENDER ;
+                                                     COMPARE ;
+                                                     NEQ ;
+                                                     IF { DROP 2 ; PUSH int -4 ; FAILWITH }
+                                                        { UNPAIR ;
+                                                          SWAP ;
+                                                          CONTRACT %vault_receive_tez unit ;
+                                                          IF_NONE
+                                                            { DROP ; PUSH int -8 ; FAILWITH }
+                                                            { SWAP ; UNIT ; TRANSFER_TOKENS } ;
+                                                          SWAP ;
+                                                          NIL operation ;
+                                                          DIG 2 ;
+                                                          CONS ;
+                                                          PAIR } } }
+                                              { PUSH mutez 0 ;
+                                                AMOUNT ;
+                                                COMPARE ;
+                                                NEQ ;
+                                                IF { DROP 2 ; PUSH int -1 ; FAILWITH }
+                                                   { DUP 2 ;
+                                                     SENDER ;
+                                                     COMPARE ;
+                                                     NEQ ;
+                                                     IF { DROP 2 ; PUSH int -2 ; FAILWITH }
+                                                        { SWAP ; NIL operation ; DIG 2 ; SET_DELEGATE ; CONS ; PAIR } } } } } } ;
+                             DIG 3 ;
+                             DUP 3 ;
+                             SOME ;
+                             SENDER ;
+                             PAIR 3 ;
+                             SELF_ADDRESS ;
+                             CONTRACT %call_vault_set_delegate (pair address (option key_hash)) ;
+                             IF_NONE
+                               { DIG 2 ; DIG 6 ; DROP 2 ; PUSH int 173 ; FAILWITH }
+                               { PUSH mutez 0 ; DIG 8 ; DIG 5 ; PAIR ; TRANSFER_TOKENS } ;
+                             SWAP ;
+                             UNPAIR 3 ;
+                             UPDATE ;
+                             DIG 3 ;
+                             PAIR ;
+                             DIG 4 ;
+                             DIG 4 ;
+                             PAIR ;
+                             PAIR ;
+                             NIL operation ;
+                             DIG 2 ;
+                             CONS }
+                           { SWAP ;
+                             DIG 2 ;
+                             DIG 3 ;
+                             DIG 4 ;
+                             DROP 4 ;
+                             CONTRACT %vault_set_delegate (option key_hash) ;
+                             IF_NONE
+                               { DROP ; PUSH int 163 ; FAILWITH }
+                               { PUSH mutez 0 ; DIG 2 ; TRANSFER_TOKENS } ;
+                             SWAP ;
+                             NIL operation } ;
+                         DIG 2 ;
+                         CONS }
+                       { UNIT ;
+                         DIG 3 ;
+                         SWAP ;
+                         EXEC ;
+                         DROP ;
+                         NIL operation ;
+                         DIG 2 ;
+                         PAIR ;
+                         SWAP ;
+                         ITER { SWAP ;
+                                UNPAIR ;
+                                UNPAIR ;
+                                UNPAIR ;
+                                DIG 2 ;
+                                UNPAIR ;
+                                DIG 5 ;
+                                UNPAIR ;
+                                DUP 4 ;
+                                DUP 2 ;
+                                GET ;
+                                IF_NONE
+                                  { SELF_ADDRESS ;
+                                    PUSH mutez 0 ;
+                                    NONE key_hash ;
+                                    CREATE_CONTRACT
+                                      { parameter
+                                          (or (or (unit %vault_receive_tez) (pair %vault_send_tez_to_contract mutez address))
+                                              (or (pair %vault_send_tez_to_vault mutez address)
+                                                  (option %vault_set_delegate key_hash))) ;
+                                        storage address ;
+                                        code { UNPAIR ;
+                                               IF_LEFT
+                                                 { IF_LEFT
+                                                     { DROP ; NIL operation ; PAIR }
+                                                     { PUSH mutez 0 ;
+                                                       AMOUNT ;
+                                                       COMPARE ;
+                                                       NEQ ;
+                                                       IF { DROP 2 ; PUSH int -5 ; FAILWITH }
+                                                          { DUP 2 ;
+                                                            SENDER ;
+                                                            COMPARE ;
+                                                            NEQ ;
+                                                            IF { DROP 2 ; PUSH int -6 ; FAILWITH }
+                                                               { UNPAIR ;
+                                                                 SWAP ;
+                                                                 CONTRACT unit ;
+                                                                 IF_NONE
+                                                                   { DROP ; PUSH int -7 ; FAILWITH }
+                                                                   { SWAP ; UNIT ; TRANSFER_TOKENS } ;
+                                                                 SWAP ;
+                                                                 NIL operation ;
+                                                                 DIG 2 ;
+                                                                 CONS ;
+                                                                 PAIR } } } }
+                                                 { IF_LEFT
+                                                     { PUSH mutez 0 ;
+                                                       AMOUNT ;
+                                                       COMPARE ;
+                                                       NEQ ;
+                                                       IF { DROP 2 ; PUSH int -3 ; FAILWITH }
+                                                          { DUP 2 ;
+                                                            SENDER ;
+                                                            COMPARE ;
+                                                            NEQ ;
+                                                            IF { DROP 2 ; PUSH int -4 ; FAILWITH }
+                                                               { UNPAIR ;
+                                                                 SWAP ;
+                                                                 CONTRACT %vault_receive_tez unit ;
+                                                                 IF_NONE
+                                                                   { DROP ; PUSH int -8 ; FAILWITH }
+                                                                   { SWAP ; UNIT ; TRANSFER_TOKENS } ;
+                                                                 SWAP ;
+                                                                 NIL operation ;
+                                                                 DIG 2 ;
+                                                                 CONS ;
+                                                                 PAIR } } }
+                                                     { PUSH mutez 0 ;
+                                                       AMOUNT ;
+                                                       COMPARE ;
+                                                       NEQ ;
+                                                       IF { DROP 2 ; PUSH int -1 ; FAILWITH }
+                                                          { DUP 2 ;
+                                                            SENDER ;
+                                                            COMPARE ;
+                                                            NEQ ;
+                                                            IF { DROP 2 ; PUSH int -2 ; FAILWITH }
+                                                               { SWAP ; NIL operation ; DIG 2 ; SET_DELEGATE ; CONS ; PAIR } } } } } } ;
+                                    DUP 2 ;
+                                    DIG 6 ;
+                                    DIG 3 ;
+                                    SOME ;
+                                    DUP 5 ;
+                                    UPDATE ;
+                                    PAIR ;
+                                    DIG 7 ;
+                                    DIG 2 ;
+                                    CONS ;
+                                    UNIT ;
+                                    RIGHT unit }
+                                  { DIG 4 ; PAIR ; DIG 6 ; UNIT ; LEFT unit } ;
+                                DIG 2 ;
+                                UNPAIR ;
+                                DIG 3 ;
+                                SWAP ;
+                                DIG 6 ;
+                                PAIR ;
+                                DIG 7 ;
+                                DIG 7 ;
+                                PAIR ;
+                                PAIR ;
+                                PAIR ;
+                                DIG 4 ;
+                                ITER { SWAP ;
+                                       UNPAIR ;
+                                       UNPAIR ;
+                                       UNPAIR ;
+                                       DIG 2 ;
+                                       UNPAIR ;
+                                       DIG 5 ;
+                                       UNPAIR 3 ;
+                                       DUP 2 ;
+                                       DUP 12 ;
+                                       PAIR ;
+                                       SENDER ;
+                                       DUP 8 ;
+                                       DIG 2 ;
+                                       UNPAIR ;
+                                       DIG 2 ;
+                                       CDR ;
+                                       DIG 2 ;
+                                       DUP 3 ;
+                                       DUP 5 ;
+                                       PAIR ;
+                                       PAIR ;
+                                       MEM ;
+                                       DUG 2 ;
+                                       COMPARE ;
+                                       EQ ;
+                                       OR ;
+                                       IF { PUSH nat 2 ;
+                                            DUP 3 ;
+                                            COMPARE ;
+                                            EQ ;
+                                            IF {} { PUSH string "FA2_TOKEN_UNDEFINED" ; FAILWITH } ;
+                                            DUP 6 ;
+                                            CAR ;
+                                            DUP 12 ;
+                                            DUP 4 ;
+                                            PAIR ;
+                                            DUP 5 ;
+                                            DUP 3 ;
+                                            DUP 3 ;
+                                            GET ;
+                                            IF_NONE { PUSH nat 0 } {} ;
+                                            SUB ;
+                                            ISNAT ;
+                                            IF_NONE { PUSH string "FA2_INSUFFICIENT_BALANCE" ; FAILWITH } {} ;
+                                            DIG 8 ;
+                                            PUSH nat 0 ;
+                                            DUP 3 ;
+                                            COMPARE ;
+                                            EQ ;
+                                            IF { SWAP ; DROP ; DUG 2 ; NONE nat ; SWAP ; UPDATE }
+                                               { DIG 3 ; DIG 2 ; DIG 3 ; SWAP ; SOME ; SWAP ; UPDATE } ;
+                                            UPDATE 1 ;
+                                            DUP ;
+                                            CAR ;
+                                            DUP 3 ;
+                                            DIG 4 ;
+                                            PAIR ;
+                                            DUP 5 ;
+                                            DUP 3 ;
+                                            DUP 3 ;
+                                            GET ;
+                                            IF_NONE { PUSH nat 0 } {} ;
+                                            ADD ;
+                                            DUP 8 ;
+                                            DUP 6 ;
+                                            GET ;
+                                            IF_NONE
+                                              { SELF_ADDRESS ;
+                                                PUSH mutez 0 ;
+                                                NONE key_hash ;
+                                                CREATE_CONTRACT
+                                                  { parameter
+                                                      (or (or (unit %vault_receive_tez) (pair %vault_send_tez_to_contract mutez address))
+                                                          (or (pair %vault_send_tez_to_vault mutez address)
+                                                              (option %vault_set_delegate key_hash))) ;
+                                                    storage address ;
+                                                    code { UNPAIR ;
+                                                           IF_LEFT
+                                                             { IF_LEFT
+                                                                 { DROP ; NIL operation ; PAIR }
+                                                                 { PUSH mutez 0 ;
+                                                                   AMOUNT ;
+                                                                   COMPARE ;
+                                                                   NEQ ;
+                                                                   IF { DROP 2 ; PUSH int -5 ; FAILWITH }
+                                                                      { DUP 2 ;
+                                                                        SENDER ;
+                                                                        COMPARE ;
+                                                                        NEQ ;
+                                                                        IF { DROP 2 ; PUSH int -6 ; FAILWITH }
+                                                                           { UNPAIR ;
+                                                                             SWAP ;
+                                                                             CONTRACT unit ;
+                                                                             IF_NONE
+                                                                               { DROP ; PUSH int -7 ; FAILWITH }
+                                                                               { SWAP ; UNIT ; TRANSFER_TOKENS } ;
+                                                                             SWAP ;
+                                                                             NIL operation ;
+                                                                             DIG 2 ;
+                                                                             CONS ;
+                                                                             PAIR } } } }
+                                                             { IF_LEFT
+                                                                 { PUSH mutez 0 ;
+                                                                   AMOUNT ;
+                                                                   COMPARE ;
+                                                                   NEQ ;
+                                                                   IF { DROP 2 ; PUSH int -3 ; FAILWITH }
+                                                                      { DUP 2 ;
+                                                                        SENDER ;
+                                                                        COMPARE ;
+                                                                        NEQ ;
+                                                                        IF { DROP 2 ; PUSH int -4 ; FAILWITH }
+                                                                           { UNPAIR ;
+                                                                             SWAP ;
+                                                                             CONTRACT %vault_receive_tez unit ;
+                                                                             IF_NONE
+                                                                               { DROP ; PUSH int -8 ; FAILWITH }
+                                                                               { SWAP ; UNIT ; TRANSFER_TOKENS } ;
+                                                                             SWAP ;
+                                                                             NIL operation ;
+                                                                             DIG 2 ;
+                                                                             CONS ;
+                                                                             PAIR } } }
+                                                                 { PUSH mutez 0 ;
+                                                                   AMOUNT ;
+                                                                   COMPARE ;
+                                                                   NEQ ;
+                                                                   IF { DROP 2 ; PUSH int -1 ; FAILWITH }
+                                                                      { DUP 2 ;
+                                                                        SENDER ;
+                                                                        COMPARE ;
+                                                                        NEQ ;
+                                                                        IF { DROP 2 ; PUSH int -2 ; FAILWITH }
+                                                                           { SWAP ; NIL operation ; DIG 2 ; SET_DELEGATE ; CONS ; PAIR } } } } } } ;
+                                                DUP 2 ;
+                                                DIG 10 ;
+                                                DIG 3 ;
+                                                SOME ;
+                                                DIG 8 ;
+                                                UPDATE ;
+                                                PAIR ;
+                                                DIG 9 ;
+                                                DIG 2 ;
+                                                CONS ;
+                                                UNIT ;
+                                                RIGHT unit }
+                                              { DIG 5 ; DROP ; DIG 7 ; PAIR ; DIG 8 ; UNIT ; LEFT unit } ;
+                                            DROP ;
+                                            SWAP ;
+                                            UNPAIR ;
+                                            DUP 12 ;
+                                            IF_LEFT
+                                              { DROP ;
+                                                DUP 11 ;
+                                                CONTRACT %vault_send_tez_to_vault (pair mutez address) ;
+                                                IF_NONE
+                                                  { SWAP ; DIG 7 ; DROP 2 ; PUSH int 161 ; FAILWITH }
+                                                  { PUSH mutez 0 ;
+                                                    DIG 3 ;
+                                                    PUSH mutez 1 ;
+                                                    DIG 10 ;
+                                                    MUL ;
+                                                    PAIR ;
+                                                    TRANSFER_TOKENS } }
+                                              { DROP ;
+                                                SELF_ADDRESS ;
+                                                CONTRACT %call_vault_send_tez_to_vault (pair (pair address mutez) address) ;
+                                                IF_NONE
+                                                  { SWAP ; DIG 7 ; DROP 2 ; PUSH int 172 ; FAILWITH }
+                                                  { PUSH mutez 0 ;
+                                                    DIG 3 ;
+                                                    PUSH mutez 1 ;
+                                                    DIG 10 ;
+                                                    MUL ;
+                                                    DUP 13 ;
+                                                    PAIR ;
+                                                    PAIR ;
+                                                    TRANSFER_TOKENS } } ;
+                                            DIG 2 ;
+                                            SWAP ;
+                                            CONS ;
+                                            SWAP ;
+                                            DIG 6 ;
+                                            PAIR ;
+                                            DIG 6 ;
+                                            DIG 6 ;
+                                            PUSH nat 0 ;
+                                            DUP 6 ;
+                                            COMPARE ;
+                                            EQ ;
+                                            IF { DIG 4 ; DROP ; DIG 5 ; DIG 5 ; NONE nat ; SWAP ; UPDATE }
+                                               { DIG 6 ; DIG 5 ; DIG 6 ; SWAP ; SOME ; SWAP ; UPDATE } ;
+                                            UPDATE 1 ;
+                                            PAIR ;
+                                            PAIR ;
+                                            PAIR }
+                                          { DROP 8 ; PUSH string "FA2_NOT_OPERATOR" ; FAILWITH } } ;
+                                SWAP ;
+                                DIG 2 ;
+                                DIG 3 ;
+                                DROP 3 } ;
+                         UNPAIR ;
+                         NIL operation ;
+                         DIG 2 ;
+                         ITER { CONS } } ;
+                     PAIR } } }
+           { IF_LEFT
+               { UNIT ;
+                 DIG 3 ;
+                 SWAP ;
+                 EXEC ;
+                 DROP ;
+                 SWAP ;
+                 UNPAIR ;
+                 UNPAIR ;
+                 DIG 2 ;
+                 UNPAIR ;
+                 DIG 2 ;
+                 DIG 4 ;
+                 ITER { IF_LEFT
+                          { UNPAIR 3 ;
+                            SENDER ;
+                            DUP 2 ;
+                            COMPARE ;
+                            NEQ ;
+                            IF { DROP 4 ; PUSH string "FA2_NOT_OWNER" ; FAILWITH }
+                               { DUP 4 ;
+                                 DIG 4 ;
+                                 CDR ;
+                                 UNIT ;
+                                 DIG 5 ;
+                                 DIG 4 ;
+                                 DIG 5 ;
+                                 PAIR ;
+                                 PAIR ;
+                                 SWAP ;
+                                 SOME ;
+                                 SWAP ;
+                                 UPDATE ;
+                                 UPDATE 2 } }
+                          { UNPAIR 3 ;
+                            SENDER ;
+                            DUP 2 ;
+                            COMPARE ;
+                            NEQ ;
+                            IF { DROP 4 ; PUSH string "FA2_NOT_OWNER" ; FAILWITH }
+                               { DUP 4 ;
+                                 DIG 4 ;
+                                 CDR ;
+                                 DIG 4 ;
+                                 DIG 3 ;
+                                 DIG 4 ;
+                                 PAIR ;
+                                 PAIR ;
+                                 NONE unit ;
+                                 SWAP ;
+                                 UPDATE ;
+                                 UPDATE 2 } } } ;
+                 DUG 2 ;
+                 PAIR ;
+                 DUG 2 ;
+                 PAIR ;
+                 PAIR ;
+                 NIL operation }
+               { SWAP ;
+                 UNPAIR ;
+                 UNPAIR ;
+                 DIG 2 ;
+                 UNPAIR ;
+                 UNIT ;
+                 DIG 6 ;
+                 SWAP ;
+                 EXEC ;
+                 DROP ;
+                 DUP 5 ;
+                 SENDER ;
+                 DIG 4 ;
+                 PUSH mutez 1 ;
+                 DIG 3 ;
+                 EDIV ;
+                 IF_NONE { PUSH string "DIV by 0" ; FAILWITH } {} ;
+                 CAR ;
+                 DIG 2 ;
+                 PAIR ;
+                 PUSH nat 2 ;
+                 DUG 2 ;
+                 UNPAIR ;
+                 DUP 3 ;
+                 CAR ;
+                 SWAP ;
+                 DIG 4 ;
+                 PAIR ;
+                 DIG 2 ;
+                 DUP 3 ;
+                 DUP 3 ;
+                 GET ;
+                 IF_NONE { PUSH nat 0 } {} ;
+                 SUB ;
+                 ISNAT ;
+                 IF_NONE { PUSH string "FA2_INSUFFICIENT_BALANCE" ; FAILWITH } {} ;
+                 DIG 3 ;
+                 PUSH nat 0 ;
+                 DUP 3 ;
+                 COMPARE ;
+                 EQ ;
+                 IF { SWAP ; DROP ; DUG 2 ; NONE nat ; SWAP ; UPDATE }
+                    { DIG 3 ; DIG 2 ; DIG 3 ; SWAP ; SOME ; SWAP ; UPDATE } ;
+                 UPDATE 1 ;
+                 PUSH mutez 1 ;
+                 DUP 6 ;
+                 EDIV ;
+                 IF_NONE { PUSH string "DIV by 0" ; FAILWITH } {} ;
+                 CAR ;
+                 DIG 2 ;
+                 SUB ;
+                 ISNAT ;
+                 IF_NONE { PUSH string "FA2_INSUFFICIENT_BALANCE" ; FAILWITH } {} ;
+                 DUP 3 ;
+                 SENDER ;
+                 GET ;
+                 IF_NONE
+                   { SELF_ADDRESS ;
+                     PUSH mutez 0 ;
+                     NONE key_hash ;
+                     CREATE_CONTRACT
+                       { parameter
+                           (or (or (unit %vault_receive_tez) (pair %vault_send_tez_to_contract mutez address))
+                               (or (pair %vault_send_tez_to_vault mutez address)
+                                   (option %vault_set_delegate key_hash))) ;
+                         storage address ;
+                         code { UNPAIR ;
+                                IF_LEFT
+                                  { IF_LEFT
+                                      { DROP ; NIL operation ; PAIR }
+                                      { PUSH mutez 0 ;
+                                        AMOUNT ;
+                                        COMPARE ;
+                                        NEQ ;
+                                        IF { DROP 2 ; PUSH int -5 ; FAILWITH }
+                                           { DUP 2 ;
+                                             SENDER ;
+                                             COMPARE ;
+                                             NEQ ;
+                                             IF { DROP 2 ; PUSH int -6 ; FAILWITH }
+                                                { UNPAIR ;
+                                                  SWAP ;
+                                                  CONTRACT unit ;
+                                                  IF_NONE
+                                                    { DROP ; PUSH int -7 ; FAILWITH }
+                                                    { SWAP ; UNIT ; TRANSFER_TOKENS } ;
+                                                  SWAP ;
+                                                  NIL operation ;
+                                                  DIG 2 ;
+                                                  CONS ;
+                                                  PAIR } } } }
+                                  { IF_LEFT
+                                      { PUSH mutez 0 ;
+                                        AMOUNT ;
+                                        COMPARE ;
+                                        NEQ ;
+                                        IF { DROP 2 ; PUSH int -3 ; FAILWITH }
+                                           { DUP 2 ;
+                                             SENDER ;
+                                             COMPARE ;
+                                             NEQ ;
+                                             IF { DROP 2 ; PUSH int -4 ; FAILWITH }
+                                                { UNPAIR ;
+                                                  SWAP ;
+                                                  CONTRACT %vault_receive_tez unit ;
+                                                  IF_NONE
+                                                    { DROP ; PUSH int -8 ; FAILWITH }
+                                                    { SWAP ; UNIT ; TRANSFER_TOKENS } ;
+                                                  SWAP ;
+                                                  NIL operation ;
+                                                  DIG 2 ;
+                                                  CONS ;
+                                                  PAIR } } }
+                                      { PUSH mutez 0 ;
+                                        AMOUNT ;
+                                        COMPARE ;
+                                        NEQ ;
+                                        IF { DROP 2 ; PUSH int -1 ; FAILWITH }
+                                           { DUP 2 ;
+                                             SENDER ;
+                                             COMPARE ;
+                                             NEQ ;
+                                             IF { DROP 2 ; PUSH int -2 ; FAILWITH }
+                                                { SWAP ; NIL operation ; DIG 2 ; SET_DELEGATE ; CONS ; PAIR } } } } } } ;
+                     DIG 4 ;
+                     DUP 3 ;
+                     SOME ;
+                     SENDER ;
+                     PAIR 3 ;
+                     SELF_ADDRESS ;
+                     CONTRACT %call_vault_send_tez_to_contract (pair (pair address mutez) address) ;
+                     IF_NONE
+                       { DIG 2 ; DIG 6 ; DROP 2 ; PUSH int 171 ; FAILWITH }
+                       { PUSH mutez 0 ; SENDER ; DIG 9 ; DIG 6 ; PAIR ; PAIR ; TRANSFER_TOKENS } ;
+                     SWAP ;
+                     UNPAIR 3 ;
+                     UPDATE ;
+                     DIG 3 ;
+                     PAIR ;
+                     DIG 4 ;
+                     DIG 4 ;
+                     PAIR ;
+                     PAIR ;
+                     NIL operation ;
+                     DIG 2 ;
+                     CONS }
+                   { CONTRACT %vault_send_tez_to_contract (pair mutez address) ;
+                     IF_NONE
+                       { DIG 4 ; DROP ; PUSH int 162 ; FAILWITH }
+                       { PUSH mutez 0 ; SENDER ; DIG 7 ; PAIR ; TRANSFER_TOKENS } ;
+                     DIG 3 ;
+                     DIG 2 ;
+                     PAIR ;
+                     DIG 3 ;
+                     DIG 3 ;
+                     PAIR ;
+                     PAIR ;
+                     NIL operation } ;
+                 DIG 2 ;
+                 CONS } ;
+             PAIR } } }
+
