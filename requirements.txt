@@ -1,0 +1,9 @@
+pytezos
+ipykernel
+marshmallow
+pyyaml
+typing
+pathlib
+jinja2
+datetime
+dataclasses
