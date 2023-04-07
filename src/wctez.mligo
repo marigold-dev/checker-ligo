@@ -203,7 +203,7 @@ type wctez_params =
 (**                              {1 MAIN}                                    *)
 (*****************************************************************************)
 
-let main (op, state: wctez_params * wctez_state): operation list * wctez_state =
+let main (op: wctez_params) (state: wctez_state): operation list * wctez_state =
   match op with
   (* FA2 entrypoints *)
   | Balance_of param -> balance_of state param

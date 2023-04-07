@@ -13,7 +13,7 @@ type params =
   | Update of (nat * nat)
   | GetCfmmPrice of (nat * nat) contract
 
-let main (op, state: params * state): operation list * state =
+let main (op: params) (state: state): operation list * state =
   match op with
   | GetCfmmPrice cb ->
     let op = Tezos.transaction state.price 0mutez cb in
