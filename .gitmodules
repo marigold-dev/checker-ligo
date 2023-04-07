@@ -3,8 +3,8 @@
 	url = https://github.com/marigold-dev/breathalyzer
 [submodule "vendor/ctez"]
 	path = vendor/ctez
-	url = https://github.com/tezos-checker/ctez
-	branch = next_next
+        url = https://github.com/marigold-dev/ctez
+	branch = main
 [submodule "math-lib-cameligo"]
 	path = math-lib-cameligo
-	url = git@github.com:ligolang/math-lib-cameligo.git
+	url = https://github.com/ligolang/math-lib-cameligo

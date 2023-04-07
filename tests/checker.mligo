@@ -186,7 +186,7 @@ let test_checker_sealing =
       let alice_sealing = Breath.Context.act_as alice (act checker 0tez sealing) in
       let storage = Breath.Contract.storage_of checker in
       Breath.Result.reduce [
-        Breath.Expect.fail_with_message Errors.error_GetLazyFunctionMissingFunction (alice_sealing)
+        Breath.Expect.fail_with_value Errors.error_GetLazyFunctionMissingFunction (alice_sealing)
       ])
 
 
