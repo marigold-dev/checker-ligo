@@ -16,6 +16,6 @@
              SENDER ;
              COMPARE ;
              EQ ;
-             IF { SWAP ; CAR ; PAIR ; NIL operation ; PAIR }
+             IF { UPDATE 2 ; NIL operation ; PAIR }
                 { DROP 2 ; PUSH string "unauthorized" ; FAILWITH } } } }
 
