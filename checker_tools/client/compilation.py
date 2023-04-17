@@ -15,7 +15,7 @@ WCTEZ_VIEWS_PAT = (
     r"let view_(\S+) *\([^:]*: *(.*) \* (wctez_state)\) *: *([^=]*)"
 )
 CHECKER_VIEWS_PAT = (
-    r"let wrapper_view_(\S+) *\([^:]*: *(.*) \* (CheckerT.wrapper)\) *: *([^=]*)"
+    r"[@view].*\nlet (\S+) *\([^:]*: *(.*) \* (CheckerT.wrapper)\) *: *([^=]*)"
 )
 CHECKER_ENTRYPOINTS_PAT = r"let lazy_id_(\S+) *= \(*(\d*)\)"
 
@@ -204,9 +204,9 @@ def compile_entrypoints(*, main_file: Path, entrypoints_file: Path):
 def compile_checker(*, main_file: Path, entrypoints_file: Path):
     views = compile_views(
         main_file=main_file,
-        views_file=entrypoints_file,
+        views_file=main_file,
         pattern=CHECKER_VIEWS_PAT,
-        prefix="Entrypoints.wrapper_view_",
+        prefix="",
     )
     entrypoints = compile_entrypoints(
         main_file=main_file, entrypoints_file=entrypoints_file
