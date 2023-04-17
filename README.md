@@ -10,6 +10,10 @@ project:
 * fewer scripting languages required to compile and deploy;
 * fewer vendored repositories (and, eventually, none). However, we're not there yet.
 
+## Online demo version
+
+A demo version is available online: you can execute [the first tutorial notebook thanks to ![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/marigold-dev/checker-ligo/HEAD?labpath=tutorials%2F01-testing-checker.ipynb).
+
 ## Requirements
 
 ### Ligo
