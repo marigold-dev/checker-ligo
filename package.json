@@ -1,0 +1,25 @@
+{
+    "name": "checker",
+    "type": "library",
+    "description": "A robocoin system for Tezos",
+    "keywords": [ "ligo", "tezos", "robocoin", "stablecoin", "oracle", "cameligo" ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/marigold-dev/checker-ligo"
+    },
+    "version": "0.1.0",
+    "main": "./src/checker.mligo",
+    "author": "Marigold <contact@marigold.dev>",
+    "license": "MIT",
+    "scripts": {
+        "test": "ligo run test tests/test_main.mligo"
+    },
+    "dependencies": {
+      "@ligo/math-lib": "^1.0.0"
+    },
+    "devDependencies": {
+      "ligo-breathalyzer": "^1.3.0"
+    },
+    "bugs": { "url": "https://github.com/marigold-dev/checker-ligo/issues" },
+    "homepage": "https://github.com/marigold-dev/checker-ligo"
+}
