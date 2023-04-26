@@ -135,7 +135,7 @@ type queue_end = QueueFront | QueueBack
     in
     (* Touch up the old element in the backend *)
     let former_youngest = bounds.slice_list_youngest_ptr in
-    let storage = avl_update_leaf storage former_youngest (fun (s: liquidation_slice) -> {s with younger = Some ptr}) in
+    let storage = avl_update_leaf (storage, former_youngest, (fun (s: liquidation_slice) -> {s with younger = Some ptr})) in
     (* Update up the bounds with the new youngest element *)
     let bounds = {bounds with slice_list_youngest_ptr = ptr} in
     {auctions with avl_storage=storage;}, SliceList {meta with slice_list_bounds=Some bounds;}, SliceListElement (ptr, slice)
@@ -186,11 +186,11 @@ type queue_end = QueueFront | QueueBack
     (* Need to update the pointers to this element in its neighbors *)
     let storage = match slice.older with
       | None -> storage
-      | Some older_ptr -> avl_update_leaf storage older_ptr (fun (s: liquidation_slice) -> {s with younger=slice.younger})
+      | Some older_ptr -> avl_update_leaf (storage, older_ptr, (fun (s: liquidation_slice) -> {s with younger=slice.younger}))
     in
     let storage = match slice.younger with
       | None -> storage
-      | Some younger_ptr -> avl_update_leaf storage younger_ptr (fun (s: liquidation_slice) -> {s with older=slice.older})
+      | Some younger_ptr -> avl_update_leaf (storage, younger_ptr,  (fun (s: liquidation_slice) -> {s with older=slice.older}))
     in
     (* Delete the element from the AVL backend *)
     let storage, root_ptr = avl_del storage ptr in

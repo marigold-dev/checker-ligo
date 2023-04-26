@@ -113,7 +113,7 @@ let deref_avl_ptr (mem: Mem.mem) (p: Liquidation.avl_ptr): Ptr.ptr option * Liqu
   | Root _ -> (failwith internalError_NodeSetParentFoundRoot : Liquidation.node)
 
 let update_matching_child
-    (mem: Mem.mem) (ptr: Ptr.ptr) (from_ptr: Ptr.ptr) (to_ptr: Ptr.ptr) : Mem.mem =
+    (mem, ptr, from_ptr, to_ptr: Mem.mem * Ptr.ptr * Ptr.ptr * Ptr.ptr) : Mem.mem =
   match Mem.mem_get mem ptr with
   | Root (_b, r) ->
 
@@ -182,7 +182,7 @@ let avl_mk_empty (mem: Mem.mem) (r: Liquidation.auction_outcome option): Mem.mem
  *       /     \
  *     left  right_left
 *)
-let ref_rotate_left (mem: Mem.mem) (curr_ptr: Ptr.ptr) : Mem.mem * Ptr.ptr =
+let ref_rotate_left (mem, curr_ptr: Mem.mem * Ptr.ptr) : Mem.mem * Ptr.ptr =
   let curr =
     match Mem.mem_get mem curr_ptr with
     | Branch curr -> curr
@@ -198,12 +198,12 @@ let ref_rotate_left (mem: Mem.mem) (curr_ptr: Ptr.ptr) : Mem.mem * Ptr.ptr =
 
   (* move right_left under curr *)
   let mem = Mem.mem_update mem right_left_ptr (node_set_parent curr_ptr) in
-  let mem = update_matching_child mem curr_ptr right_ptr right_left_ptr in
+  let mem = update_matching_child (mem, curr_ptr, right_ptr, right_left_ptr) in
 
   (* move curr under right *)
   let mem = Mem.mem_update mem right_ptr (node_set_parent curr.parent) in
   let mem = Mem.mem_update mem curr_ptr (node_set_parent right_ptr) in
-  let mem = update_matching_child mem right_ptr right_left_ptr curr_ptr in
+  let mem = update_matching_child (mem, right_ptr, right_left_ptr, curr_ptr) in
 
   (mem, right_ptr)
 
@@ -227,7 +227,7 @@ let ref_rotate_left (mem: Mem.mem) (curr_ptr: Ptr.ptr) : Mem.mem * Ptr.ptr =
  *              /      \
  *        left_right   right
 *)
-let ref_rotate_right (mem: Mem.mem) (curr_ptr: Ptr.ptr) : Mem.mem * Ptr.ptr =
+let ref_rotate_right (mem, curr_ptr: Mem.mem * Ptr.ptr) : Mem.mem * Ptr.ptr =
   let curr =
     match Mem.mem_get mem curr_ptr with
     | Branch curr -> curr
@@ -243,12 +243,12 @@ let ref_rotate_right (mem: Mem.mem) (curr_ptr: Ptr.ptr) : Mem.mem * Ptr.ptr =
 
   (* move left_right under curr *)
   let mem = Mem.mem_update mem left_right_ptr (node_set_parent curr_ptr) in
-  let mem = update_matching_child mem curr_ptr left_ptr left_right_ptr in
+  let mem = update_matching_child (mem, curr_ptr, left_ptr, left_right_ptr) in
 
   (* move curr under left *)
   let mem = Mem.mem_update mem left_ptr (node_set_parent curr.parent) in
   let mem = Mem.mem_update mem curr_ptr (node_set_parent left_ptr) in
-  let mem = update_matching_child mem left_ptr left_right_ptr curr_ptr in
+  let mem = update_matching_child (mem, left_ptr, left_right_ptr, curr_ptr) in
 
   (mem, left_ptr)
 
@@ -284,14 +284,14 @@ let rebalance (mem: Mem.mem) (curr_ptr: Ptr.ptr) : Mem.mem * Ptr.ptr =
           if heavy_child_balance <= 0 then
             (* (hcb <= 0) *)
             (* Left, Left *)
-            ref_rotate_right mem curr_ptr
+            ref_rotate_right (mem, curr_ptr)
           else (
             (* (hcb > 0) *)
             (* Left, Right *)
 
-            let (mem, new_) = ref_rotate_left mem heavy_child_ptr in
-            let mem = update_matching_child mem curr_ptr heavy_child_ptr new_ in
-            ref_rotate_right mem curr_ptr
+            let (mem, new_) = ref_rotate_left (mem, heavy_child_ptr) in
+            let mem = update_matching_child (mem, curr_ptr, heavy_child_ptr, new_) in
+            ref_rotate_right (mem, curr_ptr)
           )
         )
         else (
@@ -300,14 +300,14 @@ let rebalance (mem: Mem.mem) (curr_ptr: Ptr.ptr) : Mem.mem * Ptr.ptr =
           if heavy_child_balance >= 0 then
             (* (hcb >= 0) *)
             (* Right, Right *)
-            ref_rotate_left mem curr_ptr
+            ref_rotate_left (mem, curr_ptr)
           else (
             (* (hcb < 0) *)
             (* Right, Left *)
 
-            let (mem, new_) = ref_rotate_right mem heavy_child_ptr in
-            let mem = update_matching_child mem curr_ptr heavy_child_ptr new_ in
-            ref_rotate_left mem curr_ptr
+            let (mem, new_) = ref_rotate_right (mem, heavy_child_ptr) in
+            let mem = update_matching_child (mem, curr_ptr, heavy_child_ptr, new_) in
+            ref_rotate_left (mem, curr_ptr)
           )
         )
       in
@@ -334,7 +334,7 @@ let ref_join_post_processing
     (data: ref_join_data)
     ((mem, new_child) : Mem.mem * Ptr.ptr)
   : Mem.mem * Ptr.ptr =
-  let mem = update_matching_child mem data.ptr data.to_fix new_child in
+  let mem = update_matching_child (mem, data.ptr, data.to_fix, new_child) in
   let (mem, new_tree) = rebalance mem data.ptr in
   let mem = Mem.mem_update mem new_tree (node_set_parent data.parent_ptr) in
 
@@ -409,11 +409,7 @@ let rec ref_join_rec
       )
 
 let ref_join
-    (mem: Mem.mem)
-    (join_direction: direction)
-    (left_ptr: Ptr.ptr)
-    (right_ptr: Ptr.ptr)
-  : Mem.mem * Ptr.ptr =
+    (mem, join_direction, left_ptr, right_ptr: Mem.mem * direction * Ptr.ptr * Ptr.ptr) : Mem.mem * Ptr.ptr =
   ref_join_rec
     ( mem
     , join_direction
@@ -443,8 +439,8 @@ let avl_push
     | Some ptr ->
       let (mem, ret) =
         begin match d with
-          | Left -> ref_join mem (Left) ptr leaf_ptr
-          | Right -> ref_join mem (Right) leaf_ptr ptr
+          | Left -> ref_join (mem, Left, ptr, leaf_ptr)
+          | Right -> ref_join (mem, Right, leaf_ptr, ptr)
         end in
       let mem = Mem.mem_set mem root_ptr (Root (Some ret, root_data)) in
       (mem, LeafPtr leaf_ptr)
@@ -467,7 +463,7 @@ let rec balance_bottom_up ((mem, curr_ptr): Mem.mem * Ptr.ptr): Mem.mem * Liquid
     (* TODO we can stop recursing up when node height does not change. *)
     let (mem, new_curr) = rebalance mem curr_ptr in
 
-    let mem = update_matching_child mem b.parent curr_ptr new_curr in
+    let mem = update_matching_child (mem, b.parent, curr_ptr, new_curr) in
     balance_bottom_up (mem, b.parent)
 
 (* Deletes a leaf pointer. Note that this does not require the tree root
@@ -495,10 +491,10 @@ let ref_del (mem: Mem.mem) (ptr: Ptr.ptr): Mem.mem * Liquidation.avl_ptr =
     let grandparent_ptr = parent.parent in
     let mem = Mem.mem_update mem sibling_ptr (node_set_parent grandparent_ptr) in
     let mem = update_matching_child
-        mem
-        grandparent_ptr
-        parent_ptr
-        sibling_ptr in
+        (mem,
+        grandparent_ptr,
+        parent_ptr,
+        sibling_ptr) in
     balance_bottom_up (mem, grandparent_ptr)
 
 let avl_del (mem: Mem.mem) (ptr: Liquidation.leaf_ptr): Mem.mem * Liquidation.avl_ptr =
@@ -508,7 +504,7 @@ let avl_read_leaf (mem: Mem.mem) (ptr: Liquidation.leaf_ptr): Liquidation.liquid
   let l = deref_leaf_ptr mem ptr in
   l.value
 
-let avl_update_leaf (mem: Mem.mem) (ptr: Liquidation.leaf_ptr) (f: Liquidation.liquidation_slice -> Liquidation.liquidation_slice): Mem.mem =
+let avl_update_leaf (mem, ptr, f: Mem.mem * Liquidation.leaf_ptr * (Liquidation.liquidation_slice -> Liquidation.liquidation_slice)): Mem.mem =
   let l = deref_leaf_ptr mem ptr in
   let ptr = match ptr with LeafPtr p -> p in
   Mem.mem_set mem ptr (Leaf { l with value = f l.value })
@@ -572,13 +568,13 @@ let ref_split_post_processing
       match maybe_right with
       | None -> (failwith internalError_RefSplitPostProcessingInvariantFailed : Mem.mem * Ptr.ptr option * Ptr.ptr option)
       | Some right ->
-        let (mem, joined) = ref_join mem (Right) right branch.right in
+        let (mem, joined) = ref_join (mem, Right, right, branch.right) in
         (mem, maybe_left, Some joined)
     )
   | Right -> (
       match maybe_left with
       | Some left ->
-        let (mem, joined) = ref_join mem (Left) branch.left left in
+        let (mem, joined) = ref_join (mem, Left, branch.left, left) in
         (mem, Some joined, maybe_right)
       | None ->
         (mem, Some branch.left, maybe_right)
