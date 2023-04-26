@@ -132,13 +132,8 @@ let main (op: params) (state: CheckerT.wrapper): operation list * CheckerT.wrapp
                 | Transfer p -> Checker.strict_entrypoint_transfer (checker, p)
               end
             | LazyParams op ->
-              (* BEGIN_LIGO *)
-                 let fid, params = Entrypoints.lazyParamsToLazyFunctionId op in
-                 (get_lazy_function lazy_functions fid) (checker, params)
-                 (* END_LIGO *)
-              (* BEGIN_OCAML
-              runLazyParams op checker
-                 END_OCAML *)
+              let fid, params = Entrypoints.lazyParamsToLazyFunctionId op in
+              (get_lazy_function lazy_functions fid) (checker, params)
           end in
       (ops, lazy_functions, metadata, Sealed checker)
   in
