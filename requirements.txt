@@ -7,3 +7,4 @@ pathlib
 jinja2
 datetime
 dataclasses
+pytest
