@@ -1,4 +1,3 @@
-(* open Common *)
 #include "./common.mligo"
 
 type t = int

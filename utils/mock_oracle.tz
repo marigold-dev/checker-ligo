@@ -1,21 +1,12 @@
-{ parameter (or (contract %getPrice (pair nat nat)) (pair %update nat nat)) ;
+{ parameter (pair nat nat) ;
   storage (pair (address %owner) (pair %price nat nat)) ;
   code { UNPAIR ;
-         IF_LEFT
-           { PUSH mutez 0 ;
-             DUP 3 ;
-             CDR ;
-             TRANSFER_TOKENS ;
-             SWAP ;
-             NIL operation ;
-             DIG 2 ;
-             CONS ;
-             PAIR }
-           { DUP 2 ;
-             CAR ;
-             SENDER ;
-             COMPARE ;
-             EQ ;
-             IF { UPDATE 2 ; NIL operation ; PAIR }
-                { DROP 2 ; PUSH string "unauthorized" ; FAILWITH } } } }
+         DUP 2 ;
+         CAR ;
+         SENDER ;
+         COMPARE ;
+         EQ ;
+         IF { UPDATE 2 ; NIL operation ; PAIR }
+            { DROP 2 ; PUSH string "unauthorized" ; FAILWITH } } ;
+  view "get_price" unit (pair nat nat) { CDR ; CDR } }
 
