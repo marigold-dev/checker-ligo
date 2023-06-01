@@ -53,7 +53,7 @@ type wctez_params =
   let ledger = st.ledger in
   let key = (token_id, owner) in
   let () = if token_id = Tokens.wctez_token_id then () else failwith "FA2_TOKEN_UNDEFINED" in
-  FA2.get_fa2_ledger_value ledger key
+  FA2.get_fa2_ledger_value (ledger, key)
 
 [@inline] let fa2_run_balance_of (st, xs: FA2.fa2_state * FA2.fa2_balance_of_request list)
   : FA2.fa2_balance_of_response list =

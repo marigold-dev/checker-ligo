@@ -228,6 +228,55 @@ let test_deploy_entrypoint =
       ])
 *)
 
+let lazy_entrypoints = [
+  (Entrypoints.lazy_fun_touch , (0));
+  (Entrypoints.lazy_fun_create_burrow , (1));
+  (Entrypoints.lazy_fun_deposit_collateral , (2));
+  (Entrypoints.lazy_fun_withdraw_collateral , (3));
+  (Entrypoints.lazy_fun_mint_kit , (4));
+  (Entrypoints.lazy_fun_burn_kit , (5));
+  (Entrypoints.lazy_fun_activate_burrow , (6));
+  (Entrypoints.lazy_fun_deactivate_burrow , (7));
+  (Entrypoints.lazy_fun_mark_for_liquidation , (8));
+  (Entrypoints.lazy_fun_touch_liquidation_slices , (9));
+  (Entrypoints.lazy_fun_cancel_liquidation_slice , (10));
+  (Entrypoints.lazy_fun_touch_burrow , (11));
+  (Entrypoints.lazy_fun_set_burrow_delegate , (12));
+  (Entrypoints.lazy_fun_buy_kit , (13));
+  (Entrypoints.lazy_fun_sell_kit , (14));
+  (Entrypoints.lazy_fun_add_liquidity , (15));
+  (Entrypoints.lazy_fun_remove_liquidity , (16));
+  (Entrypoints.lazy_fun_liquidation_auction_place_bid , (17));
+  (Entrypoints.lazy_fun_liquidation_auction_claim_win , (18));
+  (Entrypoints.lazy_fun_receive_price , (19));
+  (Entrypoints.lazy_fun_receive_ctez_marginal_price , (20));
+  (Entrypoints.lazy_fun_update_operators , (21));
+]
+
+let test1 =
+  (* let _ = Test.set_source "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" *)
+  let (my_address, _, _) = Test.get_bootstrap_account 0n in
+  let _packed_entrypoints = Test.run (fun x -> List.map Bytes.pack x) lazy_entrypoints in
+  let (originated, _, _) =
+    Test.originate
+      CheckerMain.main
+      (CheckerMain.initial_wrapper my_address)
+      0tez
+  in
+  let contract = Test.to_contract originated in
+  let address = Tezos.address contract in
+  let _ = List.map
+    (fun (ent, nth) ->
+      let arg = Test.run (fun x -> DeployFunction (nth, Bytes.pack (x))) ent in
+      Test.transfer
+        address
+        arg
+        0tez)
+    lazy_entrypoints
+  in
+  ()
+
+
 let originate_sealed_checker (level: level) (alice: Breath.Context.actor) =
     let initial_wrapper = CheckerMain.initial_wrapper alice.address in
     let ext_contracts = originate_external_contracts level alice in
@@ -249,7 +298,7 @@ let t1 =
       let checker = originate_sealed_checker level alice in
       let initial_amount = Tok.tok_add Constants.creation_deposit Constants.creation_deposit in
       let op = (CheckerEntrypoint (LazyParams (Create_burrow (0n, None, initial_amount)))) in
-      let storage = Breath.Contract.storage_of checker in
+      let _storage = Breath.Contract.storage_of checker in
       Breath.Result.reduce [
         Breath.Context.act_as alice (act checker 0tez op);
         (*

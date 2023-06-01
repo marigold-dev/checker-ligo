@@ -49,7 +49,7 @@ let slice_list_is_empty (l: slice_list) : bool =
   | None -> true
 
 (* Constructs a burrow slice list for the given burrow id using the provided auction state *)
-[@inline] let slice_list_from_auction_state (auctions: liquidation_auctions) (burrow_id: burrow_id) : slice_list =
+[@inline] let slice_list_from_auction_state (auctions, burrow_id: liquidation_auctions * burrow_id) : slice_list =
   match Big_map.find_opt burrow_id auctions.burrow_slices with
   | None -> SliceList {slice_list_burrow=burrow_id; slice_list_bounds=(None:slice_list_bounds option)}
   | Some bs ->
@@ -62,10 +62,10 @@ let slice_list_is_empty (l: slice_list) : bool =
     }
 
 (* Constructs an element from a burrow leaf in the AVL *)
-[@inline] let slice_list_from_leaf_ptr (auctions: liquidation_auctions) (ptr: leaf_ptr) : (slice_list_element * slice_list) =
-  let slice = avl_read_leaf auctions.avl_storage ptr in
+[@inline] let slice_list_from_leaf_ptr (auctions, ptr: liquidation_auctions * leaf_ptr) : (slice_list_element * slice_list) =
+  let slice = avl_read_leaf (auctions.avl_storage, ptr) in
   let element = SliceListElement (ptr, slice) in
-  let list = slice_list_from_auction_state auctions slice.contents.burrow in
+  let list = slice_list_from_auction_state (auctions, slice.contents.burrow) in
   let _ =
     if slice_list_is_empty list then
       failwith internalError_SliceListFromLeafPtrEmptySliceList
@@ -77,16 +77,16 @@ let slice_list_is_empty (l: slice_list) : bool =
 (* Constructs an element from the first item in the auction queue.
    Does NOT remove the corresponding slice from the queue. *)
 [@inline] let slice_list_from_queue_head (auctions: liquidation_auctions) : (slice_list_element * slice_list) option =
-  match avl_peek_front auctions.avl_storage auctions.queued_slices with
+  match avl_peek_front (auctions.avl_storage, auctions.queued_slices) with
   | Some (ptr, slice) ->
     (* Constructing the element directly since we already have read its contents *)
     let element = SliceListElement (ptr, slice.value) in
-    let list = slice_list_from_auction_state auctions slice.value.contents.burrow in
+    let list = slice_list_from_auction_state (auctions, slice.value.contents.burrow) in
     Some (element, list)
   | None -> (None : (slice_list_element * slice_list) option)
 
 (* Updates the burrow slices in the provided auction state using the given burrow slice list *)
-[@inline] let slice_list_to_auction_state (auctions: liquidation_auctions) (l: slice_list) : liquidation_auctions =
+[@inline] let slice_list_to_auction_state (auctions, l: liquidation_auctions * slice_list) : liquidation_auctions =
   match l with SliceList meta ->
     let burrow_liquidation_slice = match meta.slice_list_bounds with
       | None -> (None: burrow_liquidation_slices option)
@@ -141,7 +141,7 @@ type queue_end = QueueFront | QueueBack
     {auctions with avl_storage=storage;}, SliceList {meta with slice_list_bounds=Some bounds;}, SliceListElement (ptr, slice)
 
 (* Remove the element from the list, returning its contents *)
-[@inline] let slice_list_remove (l:slice_list) (auctions:liquidation_auctions) (e:slice_list_element) : (liquidation_auctions * slice_list * liquidation_auction_id * liquidation_slice_contents) =
+[@inline] let slice_list_remove (l, auctions, e:slice_list * liquidation_auctions * slice_list_element) : (liquidation_auctions * slice_list * liquidation_auction_id * liquidation_slice_contents) =
   let storage = auctions.avl_storage in
   let meta = match l with SliceList m -> m in
   let ptr, slice = match e with SliceListElement (ptr, slice) -> ptr, slice in
@@ -193,7 +193,7 @@ type queue_end = QueueFront | QueueBack
       | Some younger_ptr -> avl_update_leaf (storage, younger_ptr,  (fun (s: liquidation_slice) -> {s with older=slice.older}))
     in
     (* Delete the element from the AVL backend *)
-    let storage, root_ptr = avl_del storage ptr in
+    let storage, root_ptr = avl_del (storage, ptr) in
     {auctions with avl_storage=storage;}, SliceList {meta with slice_list_bounds=bounds;}, root_ptr, slice.contents
 
 (* BEGIN_OCAML

@@ -87,9 +87,9 @@ let liquidation_auction_send_to_auction
   if (avl_height auctions.avl_storage auctions.queued_slices) >= Constants.max_liquidation_queue_height then
     (failwith error_LiquidationQueueTooLong : liquidation_auctions * leaf_ptr)
   else
-    let burrow_slices = SL.slice_list_from_auction_state auctions contents.burrow in
+    let burrow_slices = SL.slice_list_from_auction_state (auctions, contents.burrow) in
     let auctions, burrow_slices, (SliceListElement (ret, _)) = SL.slice_list_append burrow_slices auctions auctions.queued_slices QueueBack contents in
-    let auctions = SL.slice_list_to_auction_state auctions burrow_slices in
+    let auctions = SL.slice_list_to_auction_state (auctions, burrow_slices) in
 
     (auctions, ret)
 
@@ -153,13 +153,13 @@ let take_with_splitting (auctions: liquidation_auctions) (split_threshold: tok) 
         let (part1_contents, part2_contents) =
           split_liquidation_slice_contents (tok_sub split_threshold queued_amount) (SL.slice_list_element_contents element) in
         (* Remove the element we are splitting *)
-        let auctions, burrow_slices, _, _ = SL.slice_list_remove burrow_slices auctions element in
+        let auctions, burrow_slices, _, _ = SL.slice_list_remove (burrow_slices, auctions, element) in
         (* Push the first portion of the slice to the back of the new auction *)
         let auctions, burrow_slices, _ = SL.slice_list_append burrow_slices auctions new_auction QueueBack part1_contents in
         (* Push the remainder of the slice to the front of the auction queue *)
         let auctions, burrow_slices, _ = SL.slice_list_append burrow_slices auctions queued_slices QueueFront part2_contents in
         (* Update auction state *)
-        SL.slice_list_to_auction_state auctions burrow_slices
+        SL.slice_list_to_auction_state (auctions, burrow_slices)
       (* Case: no more slices in queue, nothing to split *)
       | None -> auctions
     else
@@ -184,12 +184,12 @@ let start_liquidation_auction_if_possible
            (Tok.tok_scaling_factor_int * den_qf)
         ) in
     let (auctions, new_auction) = take_with_splitting auctions split_threshold in
-    if avl_is_empty auctions.avl_storage new_auction
+    if avl_is_empty (auctions.avl_storage, new_auction)
     then
       (* If the new auction is empty (effectively meaning that the auction
        * queue itself is empty) we garbage-collect it (it's not even referenced
        * in the output). *)
-      let storage = avl_delete_empty_tree auctions.avl_storage new_auction in
+      let storage = avl_delete_empty_tree (auctions.avl_storage, new_auction) in
       let current_auction = (None: current_liquidation_auction option) in
       { auctions with
         avl_storage = storage;
@@ -267,11 +267,10 @@ let complete_liquidation_auction_if_possible
                 } in
               let storage =
                 avl_modify_root_data
-                  auctions.avl_storage
-                  curr.contents
-                  (fun (_prev: auction_outcome option) ->
-
-                     Some outcome) in
+                  (auctions.avl_storage,
+                   curr.contents,
+                   (fun (_prev: auction_outcome option) ->
+                     Some outcome)) in
               (storage, {youngest=curr.contents; oldest=curr.contents})
             | Some params ->
               let {youngest=youngest; oldest=oldest} = params in
@@ -283,20 +282,19 @@ let complete_liquidation_auction_if_possible
                 } in
               let storage =
                 avl_modify_root_data
-                  auctions.avl_storage
-                  curr.contents
-                  (fun (_prev: auction_outcome option) ->
-
-                     Some outcome) in
+                  (auctions.avl_storage,
+                   curr.contents,
+                   (fun (_prev: auction_outcome option) ->
+                     Some outcome)) in
               let storage =
                 avl_modify_root_data
-                  storage
-                  youngest
-                  (fun (prev: auction_outcome option) ->
+                  (storage,
+                   youngest,
+                   (fun (prev: auction_outcome option) ->
                      match prev with
                      | None -> (failwith internalError_CompletedAuctionWithoutOutcome : auction_outcome option)
                      | Some xs -> Some ({xs with younger_auction=Some curr.contents})
-                  ) in
+                  )) in
               (storage, {youngest=curr.contents; oldest=oldest; }) in
           { auctions with
             avl_storage = storage;
@@ -338,10 +336,10 @@ let liquidation_auction_get_current_auction (auctions: liquidation_auctions) : c
 (* removes the slice from liquidation_auctions, fixing up the necessary pointers.
  * returns the contents of the removed slice, the tree root the slice belonged to, and the updated auctions
 *)
-let pop_slice (auctions: liquidation_auctions) (leaf_ptr: leaf_ptr): liquidation_slice_contents * avl_ptr * liquidation_auctions =
-  let element, burrow_slices = SL.slice_list_from_leaf_ptr auctions leaf_ptr in
-  let auctions, burrow_slices, root_ptr, contents = SL.slice_list_remove burrow_slices auctions element in
-  let auctions = SL.slice_list_to_auction_state auctions burrow_slices in
+let pop_slice (auctions, leaf_ptr: liquidation_auctions * leaf_ptr): liquidation_slice_contents * avl_ptr * liquidation_auctions =
+  let element, burrow_slices = SL.slice_list_from_leaf_ptr (auctions, leaf_ptr) in
+  let auctions, burrow_slices, root_ptr, contents = SL.slice_list_remove (burrow_slices, auctions, element) in
+  let auctions = SL.slice_list_to_auction_state (auctions, burrow_slices) in
 
   ( contents
   , root_ptr
@@ -350,7 +348,7 @@ let pop_slice (auctions: liquidation_auctions) (leaf_ptr: leaf_ptr): liquidation
 
 let liquidation_auctions_cancel_slice (auctions: liquidation_auctions) (leaf_ptr: leaf_ptr) : liquidation_slice_contents * liquidation_auctions =
 
-  let (contents, root, auctions) = pop_slice auctions leaf_ptr in
+  let (contents, root, auctions) = pop_slice (auctions, leaf_ptr) in
 
   (* If the leaf doesn't belong to the queue, no need to cancel it. *)
   if ptr_of_avl_ptr root <> ptr_of_avl_ptr auctions.queued_slices
@@ -360,7 +358,7 @@ let liquidation_auctions_cancel_slice (auctions: liquidation_auctions) (leaf_ptr
 
 let completed_liquidation_auction_won_by_sender
     (avl_storage: mem) (auction_id: liquidation_auction_id): auction_outcome option =
-  match avl_root_data avl_storage auction_id with
+  match avl_root_data (avl_storage, auction_id) with
   | Some outcome ->
     if outcome.winning_bid.address = Tezos.get_sender ()
     then Some outcome
@@ -368,11 +366,11 @@ let completed_liquidation_auction_won_by_sender
   | None -> (None: auction_outcome option)
 
 (* Removes the auction from completed lots list, while preserving the auction itself. *)
-let liquidation_auction_pop_completed_auction (auctions: liquidation_auctions) (tree: avl_ptr) : liquidation_auctions =
+let liquidation_auction_pop_completed_auction (auctions, tree: liquidation_auctions * avl_ptr) : liquidation_auctions =
 
   let storage = auctions.avl_storage in
 
-  let outcome = match avl_root_data storage tree with
+  let outcome = match avl_root_data (storage, tree) with
     | None -> (failwith internalError_PopCompletedAuctionAuctionNotCompleted : auction_outcome)
     | Some r -> r in
   let completed_auctions = match auctions.completed_auctions with
@@ -411,27 +409,27 @@ let liquidation_auction_pop_completed_auction (auctions: liquidation_auctions) (
     match outcome.younger_auction with
     | None -> storage
     | Some younger ->
-      avl_modify_root_data storage younger (fun (i: auction_outcome option) ->
+      avl_modify_root_data (storage, younger, (fun (i: auction_outcome option) ->
           let i = match i with
             | None -> (failwith internalError_PopCompletedAuctionCompletedAuctionNoOutcome : auction_outcome)
             | Some i -> i in
 
-          Some {i with older_auction=outcome.older_auction}) in
+          Some {i with older_auction=outcome.older_auction})) in
   let storage =
     match outcome.older_auction with
     | None -> storage
     | Some older ->
-      avl_modify_root_data storage older (fun (i: auction_outcome option) ->
+      avl_modify_root_data (storage, older, (fun (i: auction_outcome option) ->
           let i = match i with
             | None -> (failwith internalError_PopCompletedAuctionCompletedAuctionNoOutcome : auction_outcome)
             | Some i -> i in
 
-          Some {i with younger_auction=outcome.younger_auction}) in
+          Some {i with younger_auction=outcome.younger_auction})) in
 
-  let storage = avl_modify_root_data storage tree (fun (_: auction_outcome option) ->
+  let storage = avl_modify_root_data (storage, tree, (fun (_: auction_outcome option) ->
       Some { outcome with
              younger_auction = (None: liquidation_auction_id option);
-             older_auction = (None: liquidation_auction_id option)}) in
+             older_auction = (None: liquidation_auction_id option)})) in
 
   let auctions =
     { auctions with
@@ -441,19 +439,19 @@ let liquidation_auction_pop_completed_auction (auctions: liquidation_auctions) (
 
   auctions
 
-let liquidation_auctions_pop_completed_slice (auctions: liquidation_auctions) (leaf_ptr: leaf_ptr) : liquidation_slice_contents * auction_outcome * liquidation_auctions =
+let liquidation_auctions_pop_completed_slice (auctions, leaf_ptr: liquidation_auctions * leaf_ptr) : liquidation_slice_contents * auction_outcome * liquidation_auctions =
 
-  let (contents, root, auctions) = pop_slice auctions leaf_ptr in
+  let (contents, root, auctions) = pop_slice (auctions, leaf_ptr) in
 
   (* When the auction has no slices left, we pop it from the linked list
    * of lots. We do not delete the auction itself from the storage, since
    * we still want the winner to be able to claim its result. *)
   let auctions =
-    if avl_is_empty auctions.avl_storage root
-    then liquidation_auction_pop_completed_auction auctions root
+    if avl_is_empty (auctions.avl_storage, root)
+    then liquidation_auction_pop_completed_auction (auctions, root)
     else auctions in
   let outcome =
-    match avl_root_data auctions.avl_storage root with
+    match avl_root_data (auctions.avl_storage, root) with
     | None -> (failwith error_NotACompletedSlice: auction_outcome)
     | Some outcome -> outcome in
 
@@ -465,7 +463,7 @@ let liquidation_auctions_pop_completed_slice (auctions: liquidation_auctions) (l
     | Some outcome ->
       (* A winning bid can only be claimed when all the liquidation slices
        * for that lot is cleaned. *)
-      if not (avl_is_empty auctions.avl_storage auction_id)
+      if not (avl_is_empty (auctions.avl_storage, auction_id))
       then (failwith error_NotAllSlicesClaimed : tok * liquidation_auctions)
       else (
         (* When the winner reclaims their bid, we finally remove every reference
@@ -475,7 +473,7 @@ let liquidation_auctions_pop_completed_slice (auctions: liquidation_auctions) (l
 
         let auctions =
           { auctions with
-            avl_storage = avl_delete_empty_tree auctions.avl_storage auction_id } in
+            avl_storage = avl_delete_empty_tree (auctions.avl_storage, auction_id) } in
         (outcome.sold_tok, auctions)
       )
     | None -> (failwith error_NotAWinningBid : tok * liquidation_auctions)
@@ -497,7 +495,7 @@ let liquidation_auction_oldest_completed_liquidation_slice (auctions: liquidatio
   match auctions.completed_auctions with
   | None -> (None: leaf_ptr option)
   | Some completed_auctions -> begin
-      match avl_peek_front auctions.avl_storage completed_auctions.youngest with
+      match avl_peek_front (auctions.avl_storage, completed_auctions.youngest) with
       | None -> (failwith internalError_OldestCompletedSliceEmptyCompletedAuction : leaf_ptr option)
       | Some p ->
         let (leaf_ptr, _) = p in
@@ -508,8 +506,8 @@ let is_burrow_done_with_liquidations (auctions: liquidation_auctions) (burrow: b
   match Big_map.find_opt burrow auctions.burrow_slices with
   | None -> true
   | Some bs ->
-    let root = avl_find_root auctions.avl_storage bs.oldest_slice in
-    let outcome = avl_root_data auctions.avl_storage root in
+    let root = avl_find_root (auctions.avl_storage, bs.oldest_slice) in
+    let outcome = avl_root_data (auctions.avl_storage, root) in
     (match outcome with
      | None -> true
      | Some _ -> false)

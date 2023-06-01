@@ -54,7 +54,7 @@ let main (op: params) (state: CheckerT.wrapper): operation list * CheckerT.wrapp
               (([]: operation list), lazy_functions, metadata, Unsealed deployer)
             | SealContract external_contracts ->
               (* check if the given oracle, collateral_fa2, and ctez contracts have the entrypoints we need *)
-              let _ = Oracle.get_oracle_entrypoint external_contracts in
+              let _ = Oracle.get_oracle_price external_contracts in
               let _ = CheckerT.get_transfer_collateral_fa2_entrypoint external_contracts in
               let _ = CheckerT.get_transfer_ctok_fa2_entrypoint external_contracts in
               let _ = CheckerT.get_ctez_cfmm_price_entrypoint external_contracts in

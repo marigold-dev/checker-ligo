@@ -244,7 +244,7 @@ module Burrow = struct
         let just_over_max = burrow_max_mintable + 1n in
         let burrow = Burrow.burrow_mint_kit initial_parameters just_over_max burrow in
         Breath.Assert.is_equal "" burrow.outstanding_kit burrow_max_mintable);
-    *)
+   *)
 
   ]
 

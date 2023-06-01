@@ -23,7 +23,7 @@
 (**                               BURROWS                                    *)
 (* ************************************************************************* *)
 
-[@inline] let find_burrow (burrows: CheckerT.burrow_map) (burrow_id: CheckerT.burrow_id) : Burrow.burrow =
+[@inline] let find_burrow (burrows, burrow_id: CheckerT.burrow_map * CheckerT.burrow_id) : Burrow.burrow =
   match Big_map.find_opt burrow_id burrows with
   | None -> (failwith error_NonExistentBurrow : Burrow.burrow)
   | Some burrow -> burrow
@@ -37,14 +37,14 @@ let ensure_burrow_has_no_unclaimed_slices (auctions: Liquidation.liquidation_auc
   else failwith error_BurrowHasCompletedLiquidation
 
 (* Ensure that the given pointer exists and that it points to a Root node. *)
-[@inline] let ensure_valid_avl_ptr (mem: Mem.mem) (avl_ptr: Liquidation.avl_ptr) : unit =
-  match Mem.mem_get_opt mem (match avl_ptr with AVLPtr r -> r) with
+[@inline] let ensure_valid_avl_ptr (mem, avl_ptr: Mem.mem * Liquidation.avl_ptr) : unit =
+  match Mem.mem_get_opt (mem, (match avl_ptr with AVLPtr r -> r)) with
   | Some (Root _) -> ()
   | _ -> failwith error_InvalidAvlPtr
 
 (* Ensure that the given pointer exists and that it points to a Leaf node. *)
-[@inline] let ensure_valid_leaf_ptr (mem: Mem.mem) (leaf_ptr: Liquidation.leaf_ptr) : unit =
-  match Mem.mem_get_opt mem (match leaf_ptr with LeafPtr r -> r) with
+[@inline] let ensure_valid_leaf_ptr (mem, leaf_ptr: Mem.mem * Liquidation.leaf_ptr) : unit =
+  match Mem.mem_get_opt (mem, (match leaf_ptr with LeafPtr r -> r)) with
   | Some (Leaf _) -> ()
   | _ -> failwith error_InvalidLeafPtr
 
@@ -77,7 +77,7 @@ let ensure_burrow_has_no_unclaimed_slices (auctions: Liquidation.liquidation_auc
 
 let entrypoint_touch_burrow
   (state, burrow_id: CheckerT.checker * CheckerT.burrow_id) : operation list * CheckerT.checker =
-  let burrow = find_burrow state.burrows burrow_id in
+  let burrow = find_burrow (state.burrows, burrow_id) in
   let burrow = Burrow.burrow_touch state.parameters burrow in
   let state = {state with burrows = Big_map.update burrow_id (Some burrow) state.burrows} in
 
@@ -86,7 +86,7 @@ let entrypoint_touch_burrow
 let entrypoint_deposit_collateral
   (state, (burrow_no, tok): CheckerT.checker * (nat * Tok.tok)) : (operation list * CheckerT.checker) =
   let burrow_id = (Tezos.get_sender (), burrow_no) in
-  let burrow = find_burrow state.burrows burrow_id in
+  let burrow = find_burrow (state.burrows, burrow_id) in
   let _ = ensure_burrow_has_no_unclaimed_slices state.liquidation_auctions burrow_id in
   let burrow = Burrow.burrow_deposit_collateral state.parameters tok burrow in
   let transfer =
@@ -109,7 +109,7 @@ let entrypoint_deposit_collateral
 let entrypoint_mint_kit
   (state, (burrow_no, kit): CheckerT.checker * (nat * Kit.kit)) : operation list * CheckerT.checker =
   let burrow_id = (Tezos.get_sender (), burrow_no) in
-  let burrow = find_burrow state.burrows burrow_id in
+  let burrow = find_burrow (state.burrows, burrow_id) in
   let _ = ensure_burrow_has_no_unclaimed_slices state.liquidation_auctions burrow_id in
   let burrow = Burrow.burrow_mint_kit state.parameters kit burrow in
   let state =
@@ -123,7 +123,7 @@ let entrypoint_mint_kit
 
 let entrypoint_withdraw_collateral (state, (burrow_no, tok): CheckerT.checker * (nat * Tok.tok)) : operation list * CheckerT.checker =
   let burrow_id = (Tezos.get_sender (), burrow_no) in
-  let burrow = find_burrow state.burrows burrow_id in
+  let burrow = find_burrow (state.burrows, burrow_id) in
   let _ = ensure_burrow_has_no_unclaimed_slices state.liquidation_auctions burrow_id in
   let burrow = Burrow.burrow_withdraw_collateral state.parameters tok burrow in
   let state = {state with burrows = Big_map.update burrow_id (Some burrow) state.burrows} in
@@ -134,7 +134,7 @@ let entrypoint_withdraw_collateral (state, (burrow_no, tok): CheckerT.checker * 
 
 let entrypoint_burn_kit (state, (burrow_no, kit): CheckerT.checker * (nat * Kit.kit)) : operation list * CheckerT.checker =
   let burrow_id = (Tezos.get_sender (), burrow_no) in
-  let burrow = find_burrow state.burrows burrow_id in
+  let burrow = find_burrow (state.burrows, burrow_id) in
   let _ = ensure_burrow_has_no_unclaimed_slices state.liquidation_auctions burrow_id in
   let burrow, actual_burned = Burrow.burrow_burn_kit state.parameters kit burrow in
   (* Note: there should be no way to remove more kit from circulation than what
@@ -157,7 +157,7 @@ let entrypoint_burn_kit (state, (burrow_no, kit): CheckerT.checker * (nat * Kit.
 
 let entrypoint_activate_burrow (state, (burrow_no, tok): CheckerT.checker * (nat * Tok.tok)) : operation list * CheckerT.checker =
   let burrow_id = (Tezos.get_sender (), burrow_no) in
-  let burrow = find_burrow state.burrows burrow_id in
+  let burrow = find_burrow (state.burrows, burrow_id) in
   let _ = ensure_burrow_has_no_unclaimed_slices state.liquidation_auctions burrow_id in
   let burrow = Burrow.burrow_activate state.parameters tok burrow in
   let transfer =
@@ -178,7 +178,7 @@ let entrypoint_activate_burrow (state, (burrow_no, tok): CheckerT.checker * (nat
 
 let entrypoint_deactivate_burrow (state, (burrow_no, receiver): CheckerT.checker * (nat * address)) : (operation list * CheckerT.checker) =
   let burrow_id = (Tezos.get_sender (), burrow_no) in
-  let burrow = find_burrow state.burrows burrow_id in
+  let burrow = find_burrow (state.burrows, burrow_id) in
   let _ = ensure_burrow_has_no_unclaimed_slices state.liquidation_auctions burrow_id in
   let (burrow, returned_tok) = Burrow.burrow_deactivate state.parameters burrow in
   let state = {state with burrows = Big_map.update burrow_id (Some burrow) state.burrows} in
@@ -191,7 +191,7 @@ let entrypoint_deactivate_burrow (state, (burrow_no, receiver): CheckerT.checker
 let entrypoint_set_burrow_delegate (state, (burrow_no, delegate_opt): CheckerT.checker * (nat * key_hash option)) : operation list * CheckerT.checker =
 
   let burrow_id = (Tezos.get_sender (), burrow_no) in
-  let burrow = find_burrow state.burrows burrow_id in
+  let burrow = find_burrow (state.burrows, burrow_id) in
   let _ = ensure_burrow_has_no_unclaimed_slices state.liquidation_auctions burrow_id in
   let op = match (Tezos.get_entrypoint_opt "%burrowSetDelegate" (Burrow.burrow_address burrow) : key_hash option contract option) with
     | Some c -> Tezos.transaction delegate_opt (0mutez) c
@@ -201,7 +201,7 @@ let entrypoint_set_burrow_delegate (state, (burrow_no, delegate_opt): CheckerT.c
 
 [@inline] let entrypoint_mark_for_liquidation (state, burrow_id: CheckerT.checker * CheckerT.burrow_id) : (operation list * CheckerT.checker) =
 
-  let burrow = find_burrow state.burrows burrow_id in
+  let burrow = find_burrow (state.burrows, burrow_id) in
 
   let
     { liquidation_reward = liquidation_reward;
@@ -240,10 +240,10 @@ let entrypoint_set_burrow_delegate (state, (burrow_no, delegate_opt): CheckerT.c
 
 (* Cancel the liquidation of a slice. *)
 let entrypoint_cancel_liquidation_slice (state, leaf_ptr: CheckerT.checker * Liquidation.leaf_ptr) : (operation list * CheckerT.checker) =
-  let _ = ensure_valid_leaf_ptr state.liquidation_auctions.avl_storage leaf_ptr in
+  let _ = ensure_valid_leaf_ptr (state.liquidation_auctions.avl_storage, leaf_ptr) in
   let (cancelled, auctions) = Liquidation.liquidation_auctions_cancel_slice state.liquidation_auctions leaf_ptr in
   let (burrow_owner, _) = cancelled.burrow in
-  let burrow = find_burrow state.burrows cancelled.burrow in
+  let burrow = find_burrow (state.burrows, cancelled.burrow) in
   let burrow = Burrow.burrow_touch state.parameters burrow in
   let _ =
     if Burrow.burrow_is_cancellation_warranted state.parameters burrow cancelled.tok
@@ -265,18 +265,15 @@ let entrypoint_cancel_liquidation_slice (state, leaf_ptr: CheckerT.checker * Liq
  * given. This means that if we entrypoint_touch a list of liquidation slices,
  * the order of operations is reversed. *)
 let touch_liquidation_slice
-    (ops: operation list)
-    (auctions: Liquidation.liquidation_auctions)
-    (state_burrows: CheckerT.burrow_map)
-    (state_parameters: Parameters.parameters)
-    (state_fa2_state: FA2.fa2_state)
-    (leaf_ptr: Liquidation.leaf_ptr)
+    (ops, auctions, state_burrows, state_parameters, state_fa2_state, leaf_ptr: operation list *
+    Liquidation.liquidation_auctions * CheckerT.burrow_map *Parameters.parameters * FA2.fa2_state *
+    Liquidation.leaf_ptr)
   : (operation list * Liquidation.liquidation_auctions * CheckerT.burrow_map * Parameters.parameters
   * FA2.fa2_state) =
 
-  let _ = ensure_valid_leaf_ptr auctions.avl_storage leaf_ptr in
+  let _ = ensure_valid_leaf_ptr (auctions.avl_storage, leaf_ptr) in
 
-  let slice, outcome, auctions = Liquidation.liquidation_auctions_pop_completed_slice auctions leaf_ptr in
+  let slice, outcome, auctions = Liquidation.liquidation_auctions_pop_completed_slice (auctions, leaf_ptr) in
 
   (* How much kit should be given to the burrow and how much should be burned.
    * Note that we treat each slice in a lot separately, so Sum(kit_to_repay_i +
@@ -314,7 +311,7 @@ let touch_liquidation_slice
   in
 
   let burrow_owner, _burrow_id = slice.burrow in
-  let burrow = find_burrow state_burrows slice.burrow in
+  let burrow = find_burrow (state_burrows, slice.burrow) in
   let burrow, repaid_kit, excess_kit = Burrow.burrow_return_kit_from_auction slice kit_to_repay burrow in
   let state_burrows = Big_map.update slice.burrow (Some burrow) state_burrows in
 
@@ -367,7 +364,9 @@ let rec touch_liquidation_slices_rec
   | [] -> (ops, state_liquidation_auctions, state_burrows, state_parameters, state_fa2_state)
   | x::xs ->
     let ops, state_liquidation_auctions, state_burrows, state_parameters, state_fa2_state =
-      touch_liquidation_slice ops state_liquidation_auctions state_burrows state_parameters state_fa2_state x in
+      touch_liquidation_slice (ops, state_liquidation_auctions, state_burrows,
+        state_parameters, state_fa2_state, x)
+    in
     touch_liquidation_slices_rec
       (ops, state_liquidation_auctions, state_burrows, state_parameters, state_fa2_state, xs)
 
@@ -600,7 +599,7 @@ let entrypoint_liquidation_auction_place_bid (state, (auction_id, kit): CheckerT
 
 let entrypoint_liquidation_auction_claim_win (state, auction_id: CheckerT.checker * Liquidation.liquidation_auction_id) : (operation list * CheckerT.checker) =
 
-  let _ = ensure_valid_avl_ptr state.liquidation_auctions.avl_storage auction_id in
+  let _ = ensure_valid_avl_ptr (state.liquidation_auctions.avl_storage, auction_id) in
   let (tok, liquidation_auctions) = Liquidation.liquidation_auction_claim_win state.liquidation_auctions auction_id in
   let transfer =
     { from_ = Tezos.get_self_address (); (* from: FA2 account of the checker contract *)
@@ -664,7 +663,8 @@ let rec touch_oldest
       | None -> (ops, state_liquidation_auctions, state_burrows, state_parameters, state_fa2_state)
       | Some leaf ->
         let ops, state_liquidation_auctions, state_burrows, state_parameters, state_fa2_state =
-          touch_liquidation_slice ops state_liquidation_auctions state_burrows state_parameters state_fa2_state leaf in
+          touch_liquidation_slice (ops, state_liquidation_auctions, state_burrows, state_parameters,
+            state_fa2_state, leaf) in
         touch_oldest
           ( ops,
             state_liquidation_auctions,
@@ -842,19 +842,19 @@ let view_remove_liquidity_min_kit_withdrawn (lqt, state: Lqt.lqt * CheckerT.chec
 
 let view_burrow_max_mintable_kit (burrow_id, state: CheckerT.burrow_id * CheckerT.checker) : Kit.kit =
 
-  let burrow = find_burrow state.burrows burrow_id in
+  let burrow = find_burrow (state.burrows, burrow_id) in
   let burrow = Burrow.burrow_touch state.parameters burrow in
   Burrow.burrow_max_mintable_kit state.parameters burrow
 
 let view_is_burrow_overburrowed (burrow_id, state: CheckerT.burrow_id * CheckerT.checker) : bool =
 
-  let burrow = find_burrow state.burrows burrow_id in
+  let burrow = find_burrow (state.burrows, burrow_id) in
   let burrow = Burrow.burrow_touch state.parameters burrow in
   Burrow.burrow_is_overburrowed state.parameters burrow
 
 let view_is_burrow_liquidatable (burrow_id, state: CheckerT.burrow_id * CheckerT.checker) : bool =
 
-  let burrow = find_burrow state.burrows burrow_id in
+  let burrow = find_burrow (state.burrows, burrow_id) in
   let burrow = Burrow.burrow_touch state.parameters burrow in
   Burrow.burrow_is_liquidatable state.parameters burrow
 

@@ -20,17 +20,14 @@ type fa2_state =
   }
 
 [@inline] let get_fa2_ledger_value
-    (ledger: (fa2_token_id * address, nat) big_map)
-    (key: fa2_token_id * address)
+    (ledger, key: (fa2_token_id * address, nat) big_map * (fa2_token_id * address))
   : nat =
   match Big_map.find_opt key ledger with
   | Some i -> i
   | None -> 0n
 
 [@inline] let set_fa2_ledger_value
-    (ledger: (fa2_token_id * address, nat) big_map)
-    (key: fa2_token_id * address)
-    (value: nat)
+    (ledger, key, value: (fa2_token_id * address, nat) big_map * (fa2_token_id * address) * nat)
   : (fa2_token_id * address, nat) big_map =
   if value = 0n
   then Big_map.remove key ledger
@@ -40,21 +37,21 @@ type fa2_state =
     (st, tok, addr, amnt: fa2_state * fa2_token_id * address * nat) : fa2_state =
   let ledger = st.ledger in
   let key = (tok , addr) in
-  let prev_balance = get_fa2_ledger_value ledger key in
+  let prev_balance = get_fa2_ledger_value (ledger, key) in
   let new_balance = prev_balance + amnt in
-  let ledger = set_fa2_ledger_value ledger key new_balance in
+  let ledger = set_fa2_ledger_value (ledger, key, new_balance) in
   { st with ledger = ledger }
 
 [@inline] let ledger_withdraw
     (st, tok, addr, amnt: fa2_state * fa2_token_id * address * nat) : fa2_state =
   let ledger = st.ledger in
   let key = (tok, addr) in
-  let prev_balance = get_fa2_ledger_value ledger key in
+  let prev_balance = get_fa2_ledger_value (ledger, key) in
   let new_balance =
     match is_nat (prev_balance - amnt) with
     | None -> (failwith "FA2_INSUFFICIENT_BALANCE" : nat)
     | Some b -> b in
-  let ledger = set_fa2_ledger_value ledger key new_balance in
+  let ledger = set_fa2_ledger_value (ledger, key, new_balance) in
   { st with ledger = ledger }
 
 (* NOTE: Checker-specific, this one. Needed to save on gas costs. *)
@@ -62,7 +59,7 @@ type fa2_state =
     (st, tok, addr, amnt_to_issue, amnt_to_withdraw: fa2_state * fa2_token_id * address * nat * nat) : fa2_state =
   let ledger = st.ledger in
   let key = (tok , addr) in
-  let balance_ = get_fa2_ledger_value ledger key in
+  let balance_ = get_fa2_ledger_value (ledger, key) in
   (* ISSUE *)
   let balance_ = balance_ + amnt_to_issue in
   (* WITHDRAW *)
@@ -71,7 +68,7 @@ type fa2_state =
     | None -> (failwith "FA2_INSUFFICIENT_BALANCE" : nat)
     | Some b -> b in
   (* UPDATE STATE *)
-  let ledger = set_fa2_ledger_value ledger key balance_ in
+  let ledger = set_fa2_ledger_value (ledger, key, balance_) in
   { st with ledger = ledger }
 
 [@inline] let fa2_is_operator (st, operator, owner, token_id: fa2_state * address * address * fa2_token_id) =

@@ -38,31 +38,31 @@ let mem_bindings (mem: mem) = Big_map.bindings mem.mem
 (* [@@@coverage on] *)
    END_OCAML *)
 
-[@inline] let mem_set (m: mem) (k: ptr) (v: node) : mem =
+[@inline] let mem_set (m, k, v: mem * ptr * node) : mem =
   (* BEGIN_OCAML    ops := { !ops with writes = !ops.writes + 1; };    END_OCAML *)
   let { mem=m_mem; last_ptr=m_last_ptr; } = m in
   { mem=Big_map.update k (Some v) m_mem; last_ptr=m_last_ptr; }
 
-[@inline] let mem_new (m: mem) (v: node) : mem * ptr =
+[@inline] let mem_new (m, v: mem * node) : mem * ptr =
   let { mem=m_mem; last_ptr=m_last_ptr; } = m in
   let ptr = ptr_next m_last_ptr in
   let m = { mem=Big_map.update ptr (Some v) m_mem; last_ptr=ptr; } in
   (m, ptr)
 
-[@inline] let mem_get (m: mem) (k: ptr) : node =
+[@inline] let mem_get (m, k: mem * ptr) : node =
   (* BEGIN_OCAML    ops := { !ops with reads = !ops.reads + 1; };    END_OCAML *)
   match Big_map.find_opt k m.mem with
   | Some v -> v
   | None -> (failwith internalError_MemGetElementNotFound : node)
 
-[@inline] let mem_get_opt (m: mem) (k: ptr) : node option =
+[@inline] let mem_get_opt (m, k: mem * ptr) : node option =
   (* BEGIN_OCAML    ops := { !ops with reads = !ops.reads + 1; };    END_OCAML *)
   Big_map.find_opt k m.mem
 
-[@inline] let mem_update (m: mem) (k: ptr) (f: node -> node) : mem =
-  mem_set m k (f (mem_get m k))
+[@inline] let mem_update (m, k, f: mem * ptr * (node -> node)) : mem =
+  mem_set (m, k, f (mem_get (m, k)))
 
-[@inline] let mem_del (mem: mem) (k: ptr) : mem =
+[@inline] let mem_del (mem, k: mem * ptr) : mem =
   (* BEGIN_OCAML    ops := { !ops with writes = !ops.writes + 1; };    END_OCAML *)
   let {mem=mem; last_ptr=last_ptr} = mem in
 

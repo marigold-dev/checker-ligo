@@ -45,7 +45,7 @@ type fa2_state = Ledger.fa2_state
   let ledger = st.ledger in
   let key = (token_id, owner) in
   let () = ensure_valid_fa2_token token_id in
-  Ledger.get_fa2_ledger_value ledger key
+  Ledger.get_fa2_ledger_value (ledger, key)
 
 [@inline] let fa2_run_balance_of (st, xs: Ledger.fa2_state * Ledger.fa2_balance_of_request list)
   : Ledger.fa2_balance_of_response list =

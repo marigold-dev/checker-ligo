@@ -32,7 +32,7 @@ let initial_mock_fa2 () =
   let ledger = st.ledger in
   let key = (token_id, owner) in
   let () = if token_id = mock_fa2_token_id then () else failwith "FA2_TOKEN_UNDEFINED" in
-  get_fa2_ledger_value ledger key
+  get_fa2_ledger_value (ledger, key)
 
 [@inline] let fa2_run_balance_of (st, xs: fa2_state * fa2_balance_of_request list)
   : fa2_balance_of_response list =
