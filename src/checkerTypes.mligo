@@ -26,7 +26,7 @@ type checker =
     cfmm : CFMMTypes.cfmm;
     parameters : Parameters.t;
     liquidation_auctions : Liquidation.liquidation_auctions;
-    last_index : FixedPoint.fixedpoint option;
+    last_index : FixedPoint.fixedpoint option;  (* FIXME: unused at the moment. *)
     last_ctez_in_tez : Common.ratio option;
     fa2_state : FA2.fa2_state;
     external_contracts : external_contracts;

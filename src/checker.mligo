@@ -348,9 +348,6 @@ let touch_liquidation_slice
     let state_fa2_state = FA2.ledger_issue_kit (state_fa2_state, burrow_owner, excess_kit) in
     state_fa2_state in
 
-
-
-
   let state_fa2_state = new_state_fa2_state in
 
   (* Signal the burrow to send the collateral to checker. *)
@@ -430,16 +427,11 @@ let entrypoint_buy_kit (state, p: CheckerT.checker * (Ctok.ctok * Kit.kit * time
     Tezos.transaction
       [transfer] (0mutez)
       (CheckerT.get_transfer_ctok_fa2_entrypoint state.external_contracts) in
-
   let state_fa2_state =
     let state_fa2_state = state.fa2_state in
     let state_fa2_state = FA2.ledger_withdraw_kit (state_fa2_state, Tezos.get_self_address (), kit_tokens) in
     let state_fa2_state = FA2.ledger_issue_kit (state_fa2_state, Tezos.get_sender (), kit_tokens) in
     state_fa2_state in
-
-
-
-
   let state =
     { state with
       cfmm = updated_cfmm;
@@ -448,9 +440,6 @@ let entrypoint_buy_kit (state, p: CheckerT.checker * (Ctok.ctok * Kit.kit * time
        * account via an FA2 transfer call. *)
       fa2_state = state_fa2_state;
     } in
-
-
-
   ([op], state)
 
 let entrypoint_sell_kit (state, p: CheckerT.checker * (Kit.kit * Ctok.ctok * timestamp)) : operation list * CheckerT.checker =
@@ -692,15 +681,15 @@ let rec touch_oldest
  * exceptions (1. setting the delegate, and 2. call/callback to the oract), all
  * of the operations are outwards calls, to other contracts (no callbacks). It
  * should be safe to leave the order of the transaction reversed. *)
-[@inline] let touch_with_index (state: CheckerT.checker) (index: FixedPoint.fixedpoint) : (operation list * CheckerT.checker) =
+let entrypoint_touch (state, _: CheckerT.checker * unit) : (operation list * CheckerT.checker) =
 
   let
     { burrows = state_burrows;
       cfmm = state_cfmm;
       parameters = state_parameters;
       liquidation_auctions = state_liquidation_auctions;
-      last_index = state_last_index;
       last_ctez_in_tez = state_last_ctez_in_tez;
+      last_index = _;
       fa2_state = state_fa2_state;
       external_contracts = state_external_contracts;
     } = state in
@@ -711,21 +700,28 @@ let rec touch_oldest
   else
     (* TODO: What is the right order in which to do things here? *)
 
-    (* 1: Mint some kit out of thin air to reward the contract toucher, and
+    (* 1: Get the price from the oracle. Note that we do not check on the
+     * liveness of the oracle. *)
+    let new_index =
+      let (num, den) = Oracle.get_oracle_price state_external_contracts in
+      FixedPoint.fixedpoint_of_ratio_floor (Common.make_ratio (int num) (int den))
+    in
+
+    (* 2: Mint some kit out of thin air to reward the contract toucher, and
      * update the circulating kit accordingly.*)
     let reward = calculate_touch_reward state_parameters.last_touched in
     let state_parameters = Parameters.add_circulating_kit state_parameters reward in
     let state_fa2_state = FA2.ledger_issue_kit (state_fa2_state, Tezos.get_sender (), reward) in
 
-    (* 2: Update the system parameters and add accrued burrowing fees to the
+    (* 3: Update the system parameters and add accrued burrowing fees to the
      * cfmm sub-contract. *)
     let kit_in_tok_in_prev_block, ops = Price.calculate_kit_in_tok state_cfmm state_last_ctez_in_tez state_external_contracts in
-    let total_accrual_to_cfmm, state_parameters = Parameters.parameters_touch index kit_in_tok_in_prev_block state_parameters in
+    let total_accrual_to_cfmm, state_parameters = Parameters.parameters_touch new_index kit_in_tok_in_prev_block state_parameters in
     (* Note: state_parameters.circulating kit here already includes the accrual to the CFMM. *)
     let state_cfmm = CFMM.cfmm_add_accrued_kit state_cfmm total_accrual_to_cfmm in
     let state_fa2_state = FA2.ledger_issue_kit (state_fa2_state, Tezos.get_self_address (), total_accrual_to_cfmm) in
 
-    (* 3: Update auction-related info (e.g. start a new auction). Note that we
+    (* 4: Update auction-related info (e.g. start a new auction). Note that we
      * always start auctions using the current liquidation price. We could also
      * have calculated the price right now directly using the oracle feed as
      * (tz_t * q_t), or use the current minting price, but using the
@@ -733,22 +729,9 @@ let rec touch_oldest
     let state_liquidation_auctions =
       Liquidation.liquidation_auction_touch state_liquidation_auctions (Parameters.liquidation_price state_parameters) in
 
-    (* 4: Touch oldest liquidation slices *)
+    (* 5: Touch oldest liquidation slices *)
     (* TODO: Touch only runs at most once per block. But it might be beneficial
      * to run this step without that restriction. *)
-
-    (* Create an operation to ask the oracles to send updated values. This
-       should be the last operation we emit, so that the system parameters do
-       not change between touching different slices. *)
-    let op_oracle =
-      let cb = match (Tezos.get_entrypoint_opt "%receive_price" (Tezos.get_self_address ()) : ((nat * nat) contract) option) with
-        | Some cb -> cb
-        | None -> (failwith error_GetEntrypointOptFailureReceivePrice : (nat * nat) contract) in
-      Tezos.transaction
-        cb
-        (0mutez)
-        (Oracle.get_oracle_entrypoint state_external_contracts) in
-    let ops = (op_oracle :: ops) in
 
     (* TODO: Figure out how many slices we can process per checker entrypoint_touch.*)
     let ops, state_liquidation_auctions, state_burrows, state_parameters, state_fa2_state =
@@ -759,26 +742,21 @@ let rec touch_oldest
         cfmm = state_cfmm;
         parameters = state_parameters;
         liquidation_auctions = state_liquidation_auctions;
-        last_index = state_last_index;
         last_ctez_in_tez = state_last_ctez_in_tez;
+        last_index = Some new_index;
         fa2_state = state_fa2_state;
         external_contracts = state_external_contracts;
       } in
-
-
-
     (ops, state)
-
-let entrypoint_touch (state, _: CheckerT.checker * unit) : (operation list * CheckerT.checker) =
-  let index = match state.last_index with
-    | None -> state.parameters.index (* use the old one *)
-    | Some i -> i in (* tez/chf (or chf in tez) *)
-  touch_with_index state index
 
 (* ************************************************************************* *)
 (**                               ORACLE                                     *)
 (* ************************************************************************* *)
 
+(* Previous Checker was using a CPS view to receive the price. This entrypoint should
+ * not be used anymore under normal conditions, but we keep it as a failsafe for now. *)
+(* TODO: last_index is currently ignored, so this entrypoint is useles. We might want to
+ * change that when we enforce liveness of the oracle. *)
 let entrypoint_receive_price (state, oracle_price: CheckerT.checker * (nat * nat)) : (operation list * CheckerT.checker) =
 
   if Tezos.get_sender () <> state.external_contracts.oracle then

@@ -57,7 +57,7 @@
 
 [@inline] let error_UnauthorisedCaller                                   : int = (111)
 [@inline] let error_GetEntrypointOptFailureReceivePrice                  : int = (112)
-[@inline] let error_GetEntrypointOptFailureOracleEntrypoint              : int = (113)
+[@inline] let error_GetEntrypointOptFailureOracleView                    : int = (113)
 [@inline] let error_GetEntrypointOptFailureFA12Transfer                  : int = (114)
 [@inline] let error_GetEntrypointOptFailureFA2Transfer                   : int = (115)
 [@inline] let error_GetEntrypointOptFailureCtezGetMarginalPrice          : int = (116)

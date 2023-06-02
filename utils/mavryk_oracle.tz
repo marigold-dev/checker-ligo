@@ -1,0 +1,60 @@
+{ parameter address ;
+  storage (pair (address %owner) (address %satellite)) ;
+  code { UNPAIR ;
+         DUP 2 ;
+         CAR ;
+         SENDER ;
+         COMPARE ;
+         EQ ;
+         IF { UPDATE 2 ; NIL operation ; PAIR }
+            { DROP 2 ; PUSH string "unauthorized" ; FAILWITH } } ;
+  view "get_price"
+       unit
+       (pair nat nat)
+       { CDR ;
+         CDR ;
+         UNIT ;
+         VIEW "getlastCompletedData"
+              (pair (nat %round)
+                    (nat %epoch)
+                    (nat %data)
+                    (nat %percentOracleResponse)
+                    (nat %decimals)
+                    (timestamp %lastUpdatedAt)) ;
+         IF_NONE
+           { PUSH string "failed to retrieve data" ; FAILWITH }
+           { DUP ;
+             GET 5 ;
+             PUSH nat 1 ;
+             DIG 2 ;
+             GET 9 ;
+             PUSH nat 10 ;
+             PAIR ;
+             PAIR ;
+             LEFT nat ;
+             LOOP_LEFT
+               { UNPAIR ;
+                 UNPAIR ;
+                 PUSH nat 0 ;
+                 DUP 3 ;
+                 COMPARE ;
+                 EQ ;
+                 IF { DROP 2 ; RIGHT (pair (pair nat nat) nat) }
+                    { PUSH nat 1 ;
+                      PUSH nat 1 ;
+                      DUP 4 ;
+                      AND ;
+                      COMPARE ;
+                      EQ ;
+                      IF { DUP ; DIG 3 ; MUL } { DIG 2 } ;
+                      PUSH nat 1 ;
+                      DIG 3 ;
+                      LSR ;
+                      DUP 3 ;
+                      DIG 3 ;
+                      MUL ;
+                      PAIR ;
+                      PAIR ;
+                      LEFT nat } } ;
+             PAIR } } }
+

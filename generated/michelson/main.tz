@@ -545,7 +545,8 @@
                           DUP ;
                           CDR ;
                           CDR ;
-                          CONTRACT %getPrice (contract (pair nat nat)) ;
+                          UNIT ;
+                          VIEW "get_price" (pair nat nat) ;
                           IF_NONE { PUSH int 113 ; FAILWITH } { DROP } ;
                           DUP ;
                           CAR ;
