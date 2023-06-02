@@ -427,16 +427,11 @@ let entrypoint_buy_kit (state, p: CheckerT.checker * (Ctok.ctok * Kit.kit * time
     Tezos.transaction
       [transfer] (0mutez)
       (CheckerT.get_transfer_ctok_fa2_entrypoint state.external_contracts) in
-
   let state_fa2_state =
     let state_fa2_state = state.fa2_state in
     let state_fa2_state = FA2.ledger_withdraw_kit (state_fa2_state, Tezos.get_self_address (), kit_tokens) in
     let state_fa2_state = FA2.ledger_issue_kit (state_fa2_state, Tezos.get_sender (), kit_tokens) in
     state_fa2_state in
-
-
-
-
   let state =
     { state with
       cfmm = updated_cfmm;
@@ -445,9 +440,6 @@ let entrypoint_buy_kit (state, p: CheckerT.checker * (Ctok.ctok * Kit.kit * time
        * account via an FA2 transfer call. *)
       fa2_state = state_fa2_state;
     } in
-
-
-
   ([op], state)
 
 let entrypoint_sell_kit (state, p: CheckerT.checker * (Kit.kit * Ctok.ctok * timestamp)) : operation list * CheckerT.checker =
@@ -689,15 +681,15 @@ let rec touch_oldest
  * exceptions (1. setting the delegate, and 2. call/callback to the oract), all
  * of the operations are outwards calls, to other contracts (no callbacks). It
  * should be safe to leave the order of the transaction reversed. *)
-[@inline] let touch_with_index (state: CheckerT.checker) (index: FixedPoint.fixedpoint) : (operation list * CheckerT.checker) =
+let entrypoint_touch (state, _: CheckerT.checker * unit) : (operation list * CheckerT.checker) =
 
   let
     { burrows = state_burrows;
       cfmm = state_cfmm;
       parameters = state_parameters;
       liquidation_auctions = state_liquidation_auctions;
-      last_index = _;
       last_ctez_in_tez = state_last_ctez_in_tez;
+      last_index = _;
       fa2_state = state_fa2_state;
       external_contracts = state_external_contracts;
     } = state in
@@ -750,18 +742,12 @@ let rec touch_oldest
         cfmm = state_cfmm;
         parameters = state_parameters;
         liquidation_auctions = state_liquidation_auctions;
-        last_index = Some new_index;
         last_ctez_in_tez = state_last_ctez_in_tez;
+        last_index = Some new_index;
         fa2_state = state_fa2_state;
         external_contracts = state_external_contracts;
       } in
     (ops, state)
-
-let entrypoint_touch (state, _: CheckerT.checker * unit) : (operation list * CheckerT.checker) =
-  let index = match state.last_index with
-    | None -> state.parameters.index (* use the old one *)
-    | Some i -> i in (* tez/chf (or chf in tez) *)
-  touch_with_index state index
 
 (* ************************************************************************* *)
 (**                               ORACLE                                     *)
@@ -769,6 +755,8 @@ let entrypoint_touch (state, _: CheckerT.checker * unit) : (operation list * Che
 
 (* Previous Checker was using a CPS view to receive the price. This entrypoint should
  * not be used anymore under normal conditions, but we keep it as a failsafe for now. *)
+(* TODO: last_index is currently ignored, so this entrypoint is useles. We might want to
+ * change that when we enforce liveness of the oracle. *)
 let entrypoint_receive_price (state, oracle_price: CheckerT.checker * (nat * nat)) : (operation list * CheckerT.checker) =
 
   if Tezos.get_sender () <> state.external_contracts.oracle then
