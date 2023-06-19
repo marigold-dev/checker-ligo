@@ -27,8 +27,8 @@ services:
   flextesa:
     container_name: checker_flextesa
     restart: always
-    image: oxheadalpha/flextesa:20230313
-    command: mumbaibox start
+    image: oxheadalpha/flextesa:20230607
+    command: nairobibox start
     environment:
       - block_time=4
       - flextesa_node_cors_origin=*
