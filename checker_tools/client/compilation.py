@@ -136,17 +136,10 @@ def parallel_compile_views(src_file: Path, views, prefix="_view"):
     return codes["args"]
 
 
-def parallel_compile_entrypoints(main_file: Path, entrypoints):
-    prefix = "Bytes.pack Entrypoints.lazy_fun_"
-    rows = "; ".join(
-        [f"x{i} = {prefix + ent_name}" for (i, ent_name) in entrypoints]
-    )
-    types = "; ".join([f"x{i} : bytes" for (i, _) in entrypoints])
-    record_expr = "({ %(rows)s } : [@layout:comb] { %(types)s })" % {
-        "rows": rows,
-        "types": types,
-    }
-    bytes = ligo_compile_json(src_file=main_file, expr=record_expr)
+def compile_entrypoint(main_file: Path, entrypoint: Tuple[int, str]):
+    ent_id, ent_name = entrypoint
+    expr = f"Bytes.pack Entrypoints.lazy_fun_{ent_name}"
+    bytes = ligo_compile_json(src_file=main_file, expr=expr)
     return json.loads(bytes)
 
 
@@ -162,9 +155,16 @@ def compile_views(
     returns = parallel_compile_types(
         src_file=main_file, types=[v[2] for v in views]
     )
-    codes = parallel_compile_views(
-        src_file=main_file, views=views, prefix=prefix
+    # Split the compilation to avoid running into Michelson max size
+    views1 = views[:len(views)//2]
+    views2 = views[len(views)//2:]
+    codes1 = parallel_compile_views(
+        src_file=main_file, views=views1, prefix=prefix
     )
+    codes2 = parallel_compile_views(
+        src_file=main_file, views=views2, prefix=prefix
+    )
+    codes = codes1 + codes2
 
     packed_views = []
     for view, code, arg_type, ret_type in zip(views, codes, args, returns):
@@ -185,12 +185,15 @@ def compile_entrypoints(*, main_file: Path, entrypoints_file: Path):
         entrypoints_file, view_pattern=CHECKER_ENTRYPOINTS_PAT
     )
 
-    json_bytes = parallel_compile_entrypoints(main_file, entrypoints)["args"]
+    json_bytes = []
+    for entrypoint in entrypoints:
+        compiled = compile_entrypoint(main_file, entrypoint)["bytes"]
+        json_bytes.append(compiled)
     assert len(json_bytes) == len(entrypoints)
 
     packed_entrypoints = []
     for ent_id, ent_name in entrypoints:
-        byts = json_bytes[ent_id]["bytes"]
+        byts = json_bytes[ent_id]
         chunks = [
             byts[chunk_size * i : chunk_size * (i + 1)]
             for i in range(len(byts) // 32000 + 1)
