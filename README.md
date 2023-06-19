@@ -1,14 +1,17 @@
 # Checker
 
 Pure CameLIGO version of the [Checker](https://github.com/tezos-checker/checker) project. Compiles
-with Ligo 0.62.3 or newer.
+with Ligo 0.67.1 or newer.
 
 This repository aims to propose an easier development experience than the original Checker
 project:
 
 * pure LIGO experience (including tests);
 * fewer scripting languages required to compile and deploy;
-* fewer vendored repositories (and, eventually, none). However, we're not there yet.
+* fewer vendored repositories (and, eventually, none).
+
+While some of these goals have not been met yet, we encourage you to deploy the system on Ghostnet
+and explore it through the Jupyter notebooks available in the `tutorials/` directory.
 
 ## Online demo version
 
@@ -16,27 +19,18 @@ A demo version is available online: you can execute [the first tutorial notebook
 
 ## Requirements
 
+We strongly encourage you to build the project locally before using it in production.
+
 ### Ligo
-Compilation of Checker currently requires a small change in the LIGO compiler. Until this change is
-ported to the compiler, it is required to install a custom version by following these steps:
 
-* clone the following repository, including its submodules:
+Please refer to [the official LIGO repository](https://gitlab.com/ligolang/ligo/-/blob/dev/INSTALL.md)
+for installation instructions. The current build script assumes that a `ligo` executable is
+available in your `$PATH`. For instance, if you compiled LIGO from source, you can place the following
+script in your `$PATH`:
 ```
-    git clone --recurse-submodules https://github.com/aguillon/ligo
-```
-* install the [opam](https://opam.ocaml.org/) package manager
-* build LIGO (this can take some time):
-```
-    cd ligo
-    make
-```
+#!/bin/env sh
 
-Please refer to [the official repository](https://gitlab.com/ligolang/ligo/-/blob/dev/INSTALL.md)
-for more detailed instructions.
-* using an alias or equivalent, make sure the produced executable is in your path under the name
-  `ligo`:
-```
-    alias ligo=$PathToLigoRepository/_build/default/src/bin/runligo.exe
+/path/to/ligo/directory/_build/default/src/bin/runligo.exe "$@"
 ```
 
 ### Python
@@ -47,7 +41,7 @@ be available in the future.
 * we recommend using [pyenv](https://realpython.com/intro-to-pyenv/) to manage your dependencies;
 * make sure you have Python ≥ 3.9 and [pytezos](https://pytezos.org/) and that you create a specific
   environment;
-* install the `checker` package using `python setup.py install`;
+* install the `checker` package using `pip install .` in the main directory;
 * optionally, install Jupyter to run the tutorial notebook.
 
 ### Submodules
