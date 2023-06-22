@@ -18,6 +18,8 @@ import pytezos
 import requests
 from pytezos.client import PyTezosClient
 from pytezos.contract.interface import ContractInterface
+from pytezos.context.impl import ExecutionContext
+from pytezos.michelson.program import MichelsonProgram
 from pytezos.operation import MAX_OPERATIONS_TTL
 
 from checker_tools.builder.config import (
@@ -316,6 +318,59 @@ def is_sandbox_container_running(name: str):
         return False
 
 
+class CheckerContract(ContractInterface):
+    @staticmethod
+    def from_context(context: ExecutionContext) -> 'CheckerContract':
+        """Create contract from the previously loaded context data.
+
+        :param context: execution context
+        :return: CheckerContract
+        """
+        program = MichelsonProgram.load(context, with_code=True)
+        cls = type(CheckerContract.__name__, (CheckerContract,),
+                   {'program': program})
+        return cls(context)
+
+    def _check_sealed(self):
+        try:
+            self.storage["deployment_state"]["sealed"]
+        except KeyError:
+            raise ValueError("The contract was not sealed.") from None
+
+    # TODO: connect with parameters from the configuration
+    def _parameters(self):
+        self._check_sealed()
+        return self.storage["deployment_state"]["sealed"]["parameters"]
+
+    def parameters(self):
+        return self._parameters()()
+
+    # TODO? Might be better as properties
+    def drift(self):
+        return self._parameters()["drift"]()
+
+    def target(self):
+        return self._parameters()["target"]()
+
+    def index(self):
+        return self._parameters()["index"]()
+
+    def protected_index(self):
+        return self._parameters()["protected_index"]()
+
+    def q(self):
+        return self._parameters()["q"]()
+
+    def cfmm(self):
+        self._check_sealed()
+        return self.storage["deployment_state"]["sealed"]["cfmm"]()
+
+    def burrows(self):
+        self._check_sealed()
+        burrows_bmap = self.storage["deployment_state"]["sealed"]["burrows"]()
+        return self.shell.head.context.big_maps[burrows_bmap]()
+
+
 def deploy_contract(
     tz: PyTezosClient,
     *,
@@ -463,6 +518,7 @@ def deploy_checker(
         initial_storage=({}, {}, {"unsealed": tz.key.public_key_hash()}),
         ttl=ttl,
     )
+    checker = CheckerContract.from_context(checker.context)
     print("Checker address: {}".format(checker.context.address))
 
     with repo.checker_functions.open() as f:

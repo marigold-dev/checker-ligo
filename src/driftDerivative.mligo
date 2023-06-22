@@ -7,38 +7,36 @@
     let [X = log (p_t)] be the "measure of imbalance". The original doc gave:
     {[
       d_t' = 0                             if 0       <= |X| < 0.5 cNp
-                                                d_t' = sign(X) * 0.01 cNp / day^2    if 0.5 cNp <= |X| <   5 cNp
-                                                                                          d_t' = sign(X) * 0.05 cNp / day^2    if   5 cNp <= |X| < infinity
+      d_t' = sign(X) * 0.01 cNp / day^2    if 0.5 cNp <= |X| <   5 cNp
+      d_t' = sign(X) * 0.05 cNp / day^2    if   5 cNp <= |X| < infinity
     ]}
 
     1. Inline the numbers: cNp ~= 1/100, day ~= 24 * 60 * 60 = 86400 seconds
     {[
       d_t' = 0                             if 0     <= |X| < 0.005
-                                                d_t' = sign(X) * 0.0001 / 86400^2    if 0.005 <= |X| < 0.05
-                                                                                          d_t' = sign(X) * 0.0005 / 86400^2    if 0.05  <= |X| < infinity
+      d_t' = sign(X) * 0.0001 / 86400^2    if 0.005 <= |X| < 0.05
+      d_t' = sign(X) * 0.0005 / 86400^2    if 0.05  <= |X| < infinity
     ]}
 
     2. Remove absolute values
     {[
       d_t' =  0                   if -0.005 <  X <  0.005
-                                       d_t' = +0.0001 / 86400^2    if +0.005 <= X < +0.05
-                                                                        d_t' = -0.0001 / 86400^2    if -0.005 >= X > -0.05
-                                                                                                         d_t' = +0.0005 / 86400^2    if +0.05  <= X < +infinity
-                                                                                                                                          d_t' = -0.0005 / 86400^2    if -0.05  >= X > -infinity
+      d_t' = +0.0001 / 86400^2    if +0.005 <= X < +0.05
+      d_t' = -0.0001 / 86400^2    if -0.005 >= X > -0.05
+      d_t' = +0.0005 / 86400^2    if +0.05  <= X < +infinity
+      d_t' = -0.0005 / 86400^2    if -0.05  >= X > -infinity
     ]}
 
     3. Exponentiate the inequalities
     {[
       d_t' =  0                   if exp(-0.005) <  p_t < exp(+0.005)
-                                       d_t' = +0.0001 / 86400^2    if exp(+0.005) <= p_t < exp(+0.05)
-                                                                        d_t' = -0.0001 / 86400^2    if exp(-0.005) >= p_t > exp(-0.05)
-                                                                                                         d_t' = +0.0005 / 86400^2    if exp(+0.05)  <= p_t < +infinity
-                                                                                                                                          d_t' = -0.0005 / 86400^2    if exp(-0.05)  >= p_t > -infinity
+      d_t' = +0.0001 / 86400^2    if exp(+0.005) <= p_t < exp(+0.05)
+      d_t' = -0.0001 / 86400^2    if exp(-0.005) >= p_t > exp(-0.05)
+      d_t' = +0.0005 / 86400^2    if exp(+0.05)  <= p_t < +infinity
+      d_t' = -0.0005 / 86400^2    if exp(-0.05)  >= p_t > -infinity
     ]}
 *)
 [@inline] let compute_drift_derivative (target : Fixedpoint.t) : Fixedpoint.t =
-
-
   (* Curve parameters
 
      The drift derivative can take one of 5 distinct values: 0, +/-0.01 cNp/day,
@@ -61,7 +59,7 @@
 
   let mul_target_tlb = target * den_tlb in
   let mul_sub_den_tlb_num_tlb_sf = (den_tlb - num_tlb) * Fixedpoint.fixedpoint_scaling_factor_int in
-  let mul_add_den_tlb_num_tlb_sf = (den_tlb - num_tlb) * Fixedpoint.fixedpoint_scaling_factor_int in
+  let mul_add_den_tlb_num_tlb_sf = (den_tlb + num_tlb) * Fixedpoint.fixedpoint_scaling_factor_int in
 
   let mul_target_thb = target * den_thb in
   let mul_sub_den_thb_num_thb_sf = (den_thb - num_thb) * Fixedpoint.fixedpoint_scaling_factor_int in
@@ -76,9 +74,7 @@
   else if (mul_add_den_thb_num_thb_sf > mul_target_thb)
        && (mul_target_tlb >= mul_add_den_tlb_num_tlb_sf) then
     low_positive_acceleration
-  else if mul_target_thb >= mul_sub_den_thb_num_thb_sf then
+  else if mul_target_thb <= mul_sub_den_thb_num_thb_sf then
     high_negative_acceleration
   else
-    begin
-      high_positive_acceleration
-    end
+    high_positive_acceleration
