@@ -53,6 +53,7 @@ let initial_wrapper (addr: address) =
    | None -> (failwith error_GetLazyFunctionMissingFunction : Entrypoints.lazy_function)
    (* END_LIGO *)
 
+[@entry]
 let main (op: params) (state: CheckerT.wrapper): operation list * CheckerT.wrapper =
   let _ = Common.ensure_no_tez_given () in
 

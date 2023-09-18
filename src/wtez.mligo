@@ -370,6 +370,7 @@ type vault_found = VaultFound | VaultNotFound
 (**                              {1 MAIN}                                    *)
 (*****************************************************************************)
 
+[@entry]
 let main (op: wtez_params) (state: wtez_state): operation list * wtez_state =
   match op with
   (* FA2 entrypoints *)

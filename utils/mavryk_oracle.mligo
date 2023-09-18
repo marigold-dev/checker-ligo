@@ -24,6 +24,7 @@ let make_storage (satellite: address) (owner: address) = {
   owner = owner;
 }
 
+[@entry]
 let main (satellite: address) (state: state): operation list * state =
   if Tezos.get_sender () = state.owner
   then [], { state with satellite = satellite }

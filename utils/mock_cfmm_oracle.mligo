@@ -13,6 +13,7 @@ type params =
   | Update of (nat * nat)
   | GetCfmmPrice of (nat * nat) contract
 
+[@entry]
 let main (op: params) (state: state): operation list * state =
   match op with
   | GetCfmmPrice cb ->

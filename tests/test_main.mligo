@@ -255,6 +255,10 @@ let () =
     Breath.Model.suite "Tests for burrows" Burrow.suite;
     Breath.Model.suite "Tests for kit" KitTest.suite;
     Breath.Model.suite "Tests for CFMM" CFMMTest.suite;
-    Breath.Model.suite "Tests for Checker" CheckerTest.suite
   ]
+
+(* Non-Breathalyzer tests because of some weird Ligo behaviour *)
+
+let _ =
+  Test.run CheckerTest.suite ()
 
