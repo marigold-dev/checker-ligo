@@ -88,7 +88,8 @@ let liquidation_auction_send_to_auction
     (failwith error_LiquidationQueueTooLong : liquidation_auctions * leaf_ptr)
   else
     let burrow_slices = SL.slice_list_from_auction_state auctions contents.burrow in
-    let auctions, burrow_slices, (SliceListElement (ret, _)) = SL.slice_list_append burrow_slices auctions auctions.queued_slices QueueBack contents in
+    let auctions, burrow_slices, slice_list_element = SL.slice_list_append burrow_slices auctions auctions.queued_slices QueueBack contents in
+    let (SliceListElement (ret, _)) = slice_list_element in
     let auctions = SL.slice_list_to_auction_state auctions burrow_slices in
 
     (auctions, ret)

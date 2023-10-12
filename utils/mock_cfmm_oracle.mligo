@@ -1,12 +1,13 @@
 type state =
-  { price: (nat * nat);
+  {
     owner: address;
+    price: (nat * nat);
   }
 
 let make_storage (owner: address) =
   {
+    owner = owner;
     price = (1n, 1n);
-    owner = owner
   }
 
 type params =

@@ -42,8 +42,8 @@ module Ctez = struct
         cfmm_address = ("tz1Ke2h7sDdakHJQh8WX4Z372du1KChsksyU" : address);
       }
     in
-    let (ctez_address, _, _) =
-      Test.originate_module (contract_of Ctez) ctez_storage 0tez
+    let {addr = ctez_address; code = _; size = _} =
+      Test.originate (contract_of Ctez) ctez_storage 0tez
     in
     let fa12_ctez_storage : FA12.storage =
       let ledger = Big_map.empty in
@@ -55,8 +55,8 @@ module Ctez = struct
         total_supply = 1n
       }
     in
-    let (fa12_ctez_address, _, _) =
-      Test.originate_module (contract_of FA12) fa12_ctez_storage 0tez
+    let {addr = fa12_ctez_address; code = _; size = _} =
+      Test.originate (contract_of FA12) fa12_ctez_storage 0tez
     in
     let ctez_cfmm_storage : CtezCFMM.storage = {
       tezPool = 1n;
@@ -70,8 +70,8 @@ module Ctez = struct
       consumerEntrypoint = address ctez_address
     }
     in
-    let (ctez_cfmm_address, _, _) =
-      Test.originate_module (contract_of CtezCFMM) ctez_cfmm_storage 0tez
+    let {addr = ctez_cfmm_address; code = _; size = _} =
+      Test.originate (contract_of CtezCFMM) ctez_cfmm_storage 0tez
     in
     {
       ctez = address ctez_address;
@@ -84,24 +84,24 @@ let ctez_contracts (_: unit) : Ctez.ctez_contracts =
   Ctez.deploy_ctez ()
 
 let oracle_contract (owner: address) =
-  Test.originate_module (contract_of MockOracle) (MockOracle.make_storage owner) 0tez
+  (Test.originate (contract_of MockOracle) (MockOracle.make_storage owner) 0tez).addr
 
 let wtez_contract (_: unit) =
-  Test.originate_module (contract_of Wtez) (Wtez.initial_wtez ()) 0tez
+  (Test.originate (contract_of Wtez) (Wtez.initial_wtez ()) 0tez).addr
 
 let wctez_contract (ctez_fa12_address: address) =
-  Test.originate_module (contract_of WCtez) (WCtez.initial_wctez ctez_fa12_address) 0tez
+  (Test.originate (contract_of WCtez) (WCtez.initial_wctez ctez_fa12_address) 0tez).addr
 
 let originate_cfmm (owner: address) =
-  Test.originate_module (contract_of MockCFMM) (MockCFMM.make_storage owner) 0tez
+  (Test.originate (contract_of MockCFMM) (MockCFMM.make_storage owner) 0tez).addr
 
 (* TODO: tests with other FA2 collaterals *)
 
 let originate_external_contracts (alice: address) =
   let ctez_contracts = ctez_contracts () in
-  let (oracle_address, _, _) = oracle_contract alice in
-  let (collateral_fa2_address, _, _) = wtez_contract () in
-  let (ctok_fa2_address, _, _) = wctez_contract ctez_contracts.fa12_ctez in
+  let oracle_address = oracle_contract alice in
+  let collateral_fa2_address = wtez_contract () in
+  let ctok_fa2_address = wctez_contract ctez_contracts.fa12_ctez in
   {
     oracle = oracle_address;
     collateral_fa2 = address collateral_fa2_address;
@@ -110,7 +110,7 @@ let originate_external_contracts (alice: address) =
   }
 
 let originate_checker (alice: address) =
-  Test.originate_module (contract_of CheckerMain) (CheckerMain.initial_wrapper alice) 0tez
+  (Test.originate (contract_of CheckerMain) (CheckerMain.initial_wrapper alice) 0tez).addr
 
 (* FIXME Can't use this either because we can't serialize entrypoints correctly
 let deploy_entrypoint (fun_id: int) (lazy_fun: (CheckerT.checker * bytes) -> operation list * CheckerT.checker) checker =
@@ -128,11 +128,10 @@ let deploy_entrypoint (fun_id: int) (lazy_fun: (CheckerT.checker * bytes) -> ope
 
 let suite () =
   let alice = Test.nth_bootstrap_account 1 in
-  let (checker_address, _, _) = originate_checker alice in
+  let checker_address = originate_checker alice in
   (address checker_address)
 
 let lazy_entrypoints = [
-  (Entrypoints.lazy_fun_touch , (0));
   (Entrypoints.lazy_fun_create_burrow , (1));
   (Entrypoints.lazy_fun_deposit_collateral , (2));
   (Entrypoints.lazy_fun_withdraw_collateral , (3));
@@ -156,6 +155,7 @@ let lazy_entrypoints = [
   (Entrypoints.lazy_fun_update_operators , (21));
 ]
 
+(*
 let test1 =
   let checker_address = suite () in
   (* let _packed_entrypoints = List.map Bytes.pack lazy_entrypoints in *)
@@ -166,3 +166,8 @@ let test1 =
     lazy_entrypoints
   in
   ()
+*)
+
+let _ =
+  let x = Bytes.pack (Entrypoints.lazy_fun_sell_kit) in
+  x
