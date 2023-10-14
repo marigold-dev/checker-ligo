@@ -1,7 +1,7 @@
 # Checker
 
 Pure CameLIGO version of the [Checker](https://github.com/tezos-checker/checker) project. Compiles
-with Ligo 0.67.1 or newer.
+with Ligo v1.
 
 This repository aims to propose an easier development experience than the original Checker
 project:
