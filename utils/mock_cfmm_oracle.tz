@@ -1,7 +1,14 @@
-{ parameter (or (contract %getCfmmPrice (pair nat nat)) (pair %update nat nat)) ;
+{ parameter (or (pair %update nat nat) (contract %getCfmmPrice (pair nat nat))) ;
   storage (pair (address %owner) (pair %price nat nat)) ;
   code { UNPAIR ;
          IF_LEFT
+           { DUP 2 ;
+             CAR ;
+             SENDER ;
+             COMPARE ;
+             EQ ;
+             IF { UPDATE 2 ; NIL operation ; PAIR }
+                { DROP 2 ; PUSH string "unauthorized" ; FAILWITH } }
            { PUSH mutez 0 ;
              DUP 3 ;
              CDR ;
@@ -10,12 +17,5 @@
              NIL operation ;
              DIG 2 ;
              CONS ;
-             PAIR }
-           { DUP 2 ;
-             CAR ;
-             SENDER ;
-             COMPARE ;
-             EQ ;
-             IF { UPDATE 2 ; NIL operation ; PAIR }
-                { DROP 2 ; PUSH string "unauthorized" ; FAILWITH } } } }
+             PAIR } } }
 

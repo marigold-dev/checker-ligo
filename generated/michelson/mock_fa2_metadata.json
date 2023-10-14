@@ -1,7 +1,7 @@
 {
   "views": [
     {
-      "name": "get_balance",
+      "name": "view_get_balance",
       "parameter": {
         "prim": "pair",
         "args": [
@@ -21,16 +21,204 @@
           "prim": "UNPAIR"
         },
         {
-          "prim": "UNPAIR"
-        },
-        {
-          "prim": "PUSH",
+          "prim": "LAMBDA",
           "args": [
+            {
+              "prim": "pair",
+              "args": [
+                {
+                  "prim": "pair",
+                  "args": [
+                    {
+                      "prim": "address"
+                    },
+                    {
+                      "prim": "nat"
+                    }
+                  ]
+                },
+                {
+                  "prim": "pair",
+                  "args": [
+                    {
+                      "prim": "pair",
+                      "args": [
+                        {
+                          "prim": "big_map",
+                          "args": [
+                            {
+                              "prim": "pair",
+                              "args": [
+                                {
+                                  "prim": "nat"
+                                },
+                                {
+                                  "prim": "address"
+                                }
+                              ]
+                            },
+                            {
+                              "prim": "nat"
+                            }
+                          ]
+                        },
+                        {
+                          "prim": "big_map",
+                          "args": [
+                            {
+                              "prim": "pair",
+                              "args": [
+                                {
+                                  "prim": "address"
+                                },
+                                {
+                                  "prim": "address"
+                                },
+                                {
+                                  "prim": "nat"
+                                }
+                              ]
+                            },
+                            {
+                              "prim": "unit"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "prim": "nat"
+                    },
+                    {
+                      "prim": "big_map",
+                      "args": [
+                        {
+                          "prim": "string"
+                        },
+                        {
+                          "prim": "bytes"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
             {
               "prim": "nat"
             },
+            [
+              {
+                "prim": "UNPAIR"
+              },
+              {
+                "prim": "UNPAIR"
+              },
+              {
+                "prim": "DIG",
+                "args": [
+                  {
+                    "int": "2"
+                  }
+                ]
+              },
+              {
+                "prim": "PUSH",
+                "args": [
+                  {
+                    "prim": "nat"
+                  },
+                  {
+                    "int": "42"
+                  }
+                ]
+              },
+              {
+                "prim": "DUP",
+                "args": [
+                  {
+                    "int": "4"
+                  }
+                ]
+              },
+              {
+                "prim": "COMPARE"
+              },
+              {
+                "prim": "EQ"
+              },
+              {
+                "prim": "IF",
+                "args": [
+                  [],
+                  [
+                    {
+                      "prim": "PUSH",
+                      "args": [
+                        {
+                          "prim": "string"
+                        },
+                        {
+                          "string": "FA2_TOKEN_UNDEFINED"
+                        }
+                      ]
+                    },
+                    {
+                      "prim": "FAILWITH"
+                    }
+                  ]
+                ]
+              },
+              {
+                "prim": "CAR"
+              },
+              {
+                "prim": "CAR"
+              },
+              {
+                "prim": "SWAP"
+              },
+              {
+                "prim": "DIG",
+                "args": [
+                  {
+                    "int": "2"
+                  }
+                ]
+              },
+              {
+                "prim": "PAIR"
+              },
+              {
+                "prim": "GET"
+              },
+              {
+                "prim": "IF_NONE",
+                "args": [
+                  [
+                    {
+                      "prim": "PUSH",
+                      "args": [
+                        {
+                          "prim": "nat"
+                        },
+                        {
+                          "int": "0"
+                        }
+                      ]
+                    }
+                  ],
+                  []
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "prim": "DUP",
+          "args": [
             {
-              "int": "42"
+              "int": "3"
             }
           ]
         },
@@ -43,49 +231,10 @@
           ]
         },
         {
-          "prim": "COMPARE"
+          "prim": "PAIR"
         },
         {
-          "prim": "EQ"
-        },
-        {
-          "prim": "IF",
-          "args": [
-            [],
-            [
-              {
-                "prim": "PUSH",
-                "args": [
-                  {
-                    "prim": "string"
-                  },
-                  {
-                    "string": "FA2_TOKEN_UNDEFINED"
-                  }
-                ]
-              },
-              {
-                "prim": "FAILWITH"
-              }
-            ]
-          ]
-        },
-        {
-          "prim": "DIG",
-          "args": [
-            {
-              "int": "2"
-            }
-          ]
-        },
-        {
-          "prim": "CAR"
-        },
-        {
-          "prim": "CAR"
-        },
-        {
-          "prim": "CAR"
+          "prim": "APPLY"
         },
         {
           "prim": "SWAP"
@@ -99,34 +248,17 @@
           ]
         },
         {
-          "prim": "PAIR"
-        },
-        {
-          "prim": "GET"
-        },
-        {
-          "prim": "IF_NONE",
+          "prim": "DROP",
           "args": [
-            [
-              {
-                "prim": "PUSH",
-                "args": [
-                  {
-                    "prim": "nat"
-                  },
-                  {
-                    "int": "0"
-                  }
-                ]
-              }
-            ],
-            []
+            {
+              "int": "2"
+            }
           ]
         }
       ]
     },
     {
-      "name": "total_supply",
+      "name": "view_total_supply",
       "parameter": {
         "prim": "nat"
       },
@@ -135,61 +267,174 @@
       },
       "code": [
         {
-          "prim": "UNPAIR"
-        },
-        {
-          "prim": "PUSH",
+          "prim": "LAMBDA",
           "args": [
+            {
+              "prim": "pair",
+              "args": [
+                {
+                  "prim": "nat"
+                },
+                {
+                  "prim": "pair",
+                  "args": [
+                    {
+                      "prim": "pair",
+                      "args": [
+                        {
+                          "prim": "big_map",
+                          "args": [
+                            {
+                              "prim": "pair",
+                              "args": [
+                                {
+                                  "prim": "nat"
+                                },
+                                {
+                                  "prim": "address"
+                                }
+                              ]
+                            },
+                            {
+                              "prim": "nat"
+                            }
+                          ]
+                        },
+                        {
+                          "prim": "big_map",
+                          "args": [
+                            {
+                              "prim": "pair",
+                              "args": [
+                                {
+                                  "prim": "address"
+                                },
+                                {
+                                  "prim": "address"
+                                },
+                                {
+                                  "prim": "nat"
+                                }
+                              ]
+                            },
+                            {
+                              "prim": "unit"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "prim": "nat"
+                    },
+                    {
+                      "prim": "big_map",
+                      "args": [
+                        {
+                          "prim": "string"
+                        },
+                        {
+                          "prim": "bytes"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
             {
               "prim": "nat"
             },
-            {
-              "int": "42"
-            }
-          ]
-        },
-        {
-          "prim": "SWAP"
-        },
-        {
-          "prim": "COMPARE"
-        },
-        {
-          "prim": "EQ"
-        },
-        {
-          "prim": "IF",
-          "args": [
             [
               {
-                "prim": "CDR"
-              }
-            ],
-            [
+                "prim": "UNPAIR"
+              },
               {
-                "prim": "DROP"
+                "prim": "SWAP"
               },
               {
                 "prim": "PUSH",
                 "args": [
                   {
-                    "prim": "string"
+                    "prim": "nat"
                   },
                   {
-                    "string": "FA2_TOKEN_UNDEFINED"
+                    "int": "42"
                   }
                 ]
               },
               {
-                "prim": "FAILWITH"
+                "prim": "DIG",
+                "args": [
+                  {
+                    "int": "2"
+                  }
+                ]
+              },
+              {
+                "prim": "COMPARE"
+              },
+              {
+                "prim": "EQ"
+              },
+              {
+                "prim": "IF",
+                "args": [
+                  [
+                    {
+                      "prim": "GET",
+                      "args": [
+                        {
+                          "int": "3"
+                        }
+                      ]
+                    }
+                  ],
+                  [
+                    {
+                      "prim": "DROP"
+                    },
+                    {
+                      "prim": "PUSH",
+                      "args": [
+                        {
+                          "prim": "string"
+                        },
+                        {
+                          "string": "FA2_TOKEN_UNDEFINED"
+                        }
+                      ]
+                    },
+                    {
+                      "prim": "FAILWITH"
+                    }
+                  ]
+                ]
               }
             ]
           ]
+        },
+        {
+          "prim": "DUP",
+          "args": [
+            {
+              "int": "2"
+            }
+          ]
+        },
+        {
+          "prim": "APPLY"
+        },
+        {
+          "prim": "SWAP"
+        },
+        {
+          "prim": "DROP"
         }
       ]
     },
     {
-      "name": "all_tokens",
+      "name": "view_all_tokens",
       "parameter": {
         "prim": "unit"
       },
@@ -206,31 +451,114 @@
           "prim": "DROP"
         },
         {
-          "prim": "NIL",
+          "prim": "LAMBDA",
           "args": [
             {
-              "prim": "nat"
-            }
-          ]
-        },
-        {
-          "prim": "PUSH",
-          "args": [
-            {
-              "prim": "nat"
+              "prim": "pair",
+              "args": [
+                {
+                  "prim": "pair",
+                  "args": [
+                    {
+                      "prim": "big_map",
+                      "args": [
+                        {
+                          "prim": "pair",
+                          "args": [
+                            {
+                              "prim": "nat"
+                            },
+                            {
+                              "prim": "address"
+                            }
+                          ]
+                        },
+                        {
+                          "prim": "nat"
+                        }
+                      ]
+                    },
+                    {
+                      "prim": "big_map",
+                      "args": [
+                        {
+                          "prim": "pair",
+                          "args": [
+                            {
+                              "prim": "address"
+                            },
+                            {
+                              "prim": "address"
+                            },
+                            {
+                              "prim": "nat"
+                            }
+                          ]
+                        },
+                        {
+                          "prim": "unit"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "prim": "nat"
+                },
+                {
+                  "prim": "big_map",
+                  "args": [
+                    {
+                      "prim": "string"
+                    },
+                    {
+                      "prim": "bytes"
+                    }
+                  ]
+                }
+              ]
             },
             {
-              "int": "42"
-            }
+              "prim": "list",
+              "args": [
+                {
+                  "prim": "nat"
+                }
+              ]
+            },
+            [
+              {
+                "prim": "DROP"
+              },
+              {
+                "prim": "NIL",
+                "args": [
+                  {
+                    "prim": "nat"
+                  }
+                ]
+              },
+              {
+                "prim": "PUSH",
+                "args": [
+                  {
+                    "prim": "nat"
+                  },
+                  {
+                    "int": "42"
+                  }
+                ]
+              },
+              {
+                "prim": "CONS"
+              }
+            ]
           ]
-        },
-        {
-          "prim": "CONS"
         }
       ]
     },
     {
-      "name": "is_operator",
+      "name": "view_is_operator",
       "parameter": {
         "prim": "pair",
         "args": [
@@ -253,13 +581,230 @@
           "prim": "UNPAIR"
         },
         {
+          "prim": "SWAP"
+        },
+        {
           "prim": "UNPAIR"
+        },
+        {
+          "prim": "LAMBDA",
+          "args": [
+            {
+              "prim": "pair",
+              "args": [
+                {
+                  "prim": "pair",
+                  "args": [
+                    {
+                      "prim": "address"
+                    },
+                    {
+                      "prim": "nat"
+                    },
+                    {
+                      "prim": "address"
+                    }
+                  ]
+                },
+                {
+                  "prim": "pair",
+                  "args": [
+                    {
+                      "prim": "pair",
+                      "args": [
+                        {
+                          "prim": "big_map",
+                          "args": [
+                            {
+                              "prim": "pair",
+                              "args": [
+                                {
+                                  "prim": "nat"
+                                },
+                                {
+                                  "prim": "address"
+                                }
+                              ]
+                            },
+                            {
+                              "prim": "nat"
+                            }
+                          ]
+                        },
+                        {
+                          "prim": "big_map",
+                          "args": [
+                            {
+                              "prim": "pair",
+                              "args": [
+                                {
+                                  "prim": "address"
+                                },
+                                {
+                                  "prim": "address"
+                                },
+                                {
+                                  "prim": "nat"
+                                }
+                              ]
+                            },
+                            {
+                              "prim": "unit"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "prim": "nat"
+                    },
+                    {
+                      "prim": "big_map",
+                      "args": [
+                        {
+                          "prim": "string"
+                        },
+                        {
+                          "prim": "bytes"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "prim": "bool"
+            },
+            [
+              {
+                "prim": "UNPAIR"
+              },
+              {
+                "prim": "UNPAIR",
+                "args": [
+                  {
+                    "int": "3"
+                  }
+                ]
+              },
+              {
+                "prim": "DIG",
+                "args": [
+                  {
+                    "int": "3"
+                  }
+                ]
+              },
+              {
+                "prim": "CAR"
+              },
+              {
+                "prim": "CDR"
+              },
+              {
+                "prim": "DIG",
+                "args": [
+                  {
+                    "int": "2"
+                  }
+                ]
+              },
+              {
+                "prim": "DUP",
+                "args": [
+                  {
+                    "int": "4"
+                  }
+                ]
+              },
+              {
+                "prim": "DUP",
+                "args": [
+                  {
+                    "int": "4"
+                  }
+                ]
+              },
+              {
+                "prim": "PAIR",
+                "args": [
+                  {
+                    "int": "3"
+                  }
+                ]
+              },
+              {
+                "prim": "MEM"
+              },
+              {
+                "prim": "SWAP"
+              },
+              {
+                "prim": "DIG",
+                "args": [
+                  {
+                    "int": "2"
+                  }
+                ]
+              },
+              {
+                "prim": "COMPARE"
+              },
+              {
+                "prim": "EQ"
+              },
+              {
+                "prim": "OR"
+              }
+            ]
+          ]
+        },
+        {
+          "prim": "DUP",
+          "args": [
+            {
+              "int": "4"
+            }
+          ]
+        },
+        {
+          "prim": "DUP",
+          "args": [
+            {
+              "int": "4"
+            }
+          ]
+        },
+        {
+          "prim": "DUP",
+          "args": [
+            {
+              "int": "4"
+            }
+          ]
+        },
+        {
+          "prim": "PAIR",
+          "args": [
+            {
+              "int": "3"
+            }
+          ]
+        },
+        {
+          "prim": "APPLY"
         },
         {
           "prim": "SWAP"
         },
         {
-          "prim": "UNPAIR"
+          "prim": "DIG",
+          "args": [
+            {
+              "int": "2"
+            }
+          ]
         },
         {
           "prim": "DIG",
@@ -270,66 +815,12 @@
           ]
         },
         {
-          "prim": "CAR"
-        },
-        {
-          "prim": "CAR"
-        },
-        {
-          "prim": "CDR"
-        },
-        {
-          "prim": "DIG",
+          "prim": "DROP",
           "args": [
             {
-              "int": "2"
+              "int": "3"
             }
           ]
-        },
-        {
-          "prim": "DUP",
-          "args": [
-            {
-              "int": "4"
-            }
-          ]
-        },
-        {
-          "prim": "DUP",
-          "args": [
-            {
-              "int": "4"
-            }
-          ]
-        },
-        {
-          "prim": "PAIR"
-        },
-        {
-          "prim": "PAIR"
-        },
-        {
-          "prim": "MEM"
-        },
-        {
-          "prim": "SWAP"
-        },
-        {
-          "prim": "DIG",
-          "args": [
-            {
-              "int": "2"
-            }
-          ]
-        },
-        {
-          "prim": "COMPARE"
-        },
-        {
-          "prim": "EQ"
-        },
-        {
-          "prim": "OR"
         }
       ]
     }

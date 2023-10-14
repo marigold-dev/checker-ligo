@@ -1,18 +1,18 @@
 { parameter address ;
-  storage (pair (address %owner) (address %satellite)) ;
+  storage (pair (address %satellite) (address %owner)) ;
   code { UNPAIR ;
          DUP 2 ;
-         CAR ;
+         CDR ;
          SENDER ;
          COMPARE ;
          EQ ;
-         IF { UPDATE 2 ; NIL operation ; PAIR }
+         IF { UPDATE 1 ; NIL operation ; PAIR }
             { DROP 2 ; PUSH string "unauthorized" ; FAILWITH } } ;
   view "get_price"
        unit
        (pair nat nat)
        { CDR ;
-         CDR ;
+         CAR ;
          UNIT ;
          VIEW "getlastCompletedData"
               (pair (nat %round)
@@ -29,17 +29,15 @@
              DIG 2 ;
              GET 9 ;
              PUSH nat 10 ;
-             PAIR ;
-             PAIR ;
+             PAIR 3 ;
              LEFT nat ;
              LOOP_LEFT
-               { UNPAIR ;
-                 UNPAIR ;
+               { UNPAIR 3 ;
                  PUSH nat 0 ;
                  DUP 3 ;
                  COMPARE ;
                  EQ ;
-                 IF { DROP 2 ; RIGHT (pair (pair nat nat) nat) }
+                 IF { DROP 2 ; RIGHT (pair nat nat nat) }
                     { PUSH nat 1 ;
                       PUSH nat 1 ;
                       DUP 4 ;
@@ -53,8 +51,7 @@
                       DUP 3 ;
                       DIG 3 ;
                       MUL ;
-                      PAIR ;
-                      PAIR ;
+                      PAIR 3 ;
                       LEFT nat } } ;
              PAIR } } }
 
