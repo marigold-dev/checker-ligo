@@ -126,7 +126,6 @@ def parallel_compile_views(src_file: Path, views, prefix=""):
         "types": types,
     }
 
-
     raw_json = ligo_compile_json(src_file=src_file, expr=record_expr)
     codes = json.loads(raw_json)
     # The compiler returns the views code under the following format:
@@ -193,7 +192,7 @@ def compile_entrypoints(*, main_file: Path, entrypoints_file: Path):
     for ent_id, ent_name in entrypoints:
         byts = json_bytes[ent_id]
         chunks = [
-            byts[chunk_size * i : chunk_size * (i + 1)]
+            "0x" + byts[chunk_size * i: chunk_size * (i + 1)]
             for i in range(len(byts) // 32000 + 1)
         ]
         packed_entrypoints.append(

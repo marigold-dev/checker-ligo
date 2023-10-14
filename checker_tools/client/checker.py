@@ -541,7 +541,7 @@ def deploy_checker(
     for fun in functions["lazy_functions"]:
         print("Deploying: {}".format(fun["name"]))
         for chunk_no, chunk in enumerate(fun["chunks"]):
-            arg = (int(fun["fn_id"]), "0x" + chunk)
+            arg = (int(fun["fn_id"]), chunk)
             inject(tz, checker.deployFunction(arg).as_transaction().autofill(ttl=ttl).sign())
             print("  deployed: chunk {}.".format(chunk_no))
 
