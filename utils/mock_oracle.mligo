@@ -17,5 +17,5 @@ let main (new_price: nat * nat) (state: state): operation list * state =
   else failwith "unauthorized"
 
 [@view]
-let get_price ((), state: unit * state): (nat * nat) =
+let get_price () (state: state): (nat * nat) =
   state.price

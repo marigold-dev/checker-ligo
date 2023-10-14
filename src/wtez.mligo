@@ -391,17 +391,21 @@ let main (op: wtez_params) (state: wtez_state): operation list * wtez_state =
 (**                       {1 OFFLINE FA2 VIEWS}                              *)
 (*****************************************************************************)
 
-let view_get_balance ((owner, token_id), state: (address * FA2.fa2_token_id) * wtez_state) : nat =
+[@view]
+let get_balance ((owner, token_id): (address * FA2.fa2_token_id)) (state: wtez_state) : nat =
   fa2_get_balance (state.fa2_state, owner, token_id)
 
-let view_total_supply (token_id, state: FA2.fa2_token_id * wtez_state) : nat =
+[@view]
+let total_supply (token_id: FA2.fa2_token_id) (state: wtez_state) : nat =
   if token_id = Tokens.wtez_token_id then
     state.total_token
   else
     failwith "FA2_TOKEN_UNDEFINED"
 
-let view_all_tokens ((), _state: unit * wtez_state) : FA2.fa2_token_id list =
+[@view]
+let all_tokens (_unit: unit) (_state: wtez_state) : FA2.fa2_token_id list =
   [ Tokens.wtez_token_id ]
 
-let view_is_operator ((owner, (operator, token_id)), state: (address * (address * FA2.fa2_token_id)) * wtez_state) : bool =
+[@view]
+let is_operator ((owner, (operator, token_id)): (address * (address * FA2.fa2_token_id))) (state: wtez_state) : bool =
   FA2.fa2_is_operator (state.fa2_state, operator, owner, token_id)

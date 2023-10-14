@@ -3,19 +3,19 @@ from pathlib import Path
 import re
 import os
 import json
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 FA2_VIEWS_PAT = (
-    r"let view_(\S+) *\([^:]*: *(.*) \* (mock_fa2_state)\) *: *([^=]*)"
+    r"\[@view\].*\nlet (\S+) *\([^:]*: *(.*)\) \([^:]*: (mock_fa2_state)\) *: *([^=]*)"
 )
 WTEZ_VIEWS_PAT = (
-    r"let view_(\S+) *\([^:]*: *(.*) \* (wtez_state)\) *: *([^=]*)"
+    r"\[@view\].*\nlet (\S+) *\([^:]*: *(.*)\) \([^:]*: (wtez_state)\) *: *([^=]*)"
 )
 WCTEZ_VIEWS_PAT = (
-    r"let view_(\S+) *\([^:]*: *(.*) \* (wctez_state)\) *: *([^=]*)"
+    r"\[@view\].*\nlet (\S+) *\([^:]*: *(.*)\) \([^:]*: (wctez_state)\) *: *([^=]*)"
 )
 CHECKER_VIEWS_PAT = (
-    r"[@view].*\nlet (\S+) *\([^:]*: *(.*) \* (CheckerT.wrapper)\) *: *([^=]*)"
+    r"\[@view\].*\nlet (\S+) *\([^:]*: *(.*)\) \([^:]*: (CheckerT.wrapper)\) *: *([^=]*)"
 )
 CHECKER_ENTRYPOINTS_PAT = r"let lazy_id_(\S+) *= \(*(\d*)\)"
 
@@ -73,7 +73,7 @@ def ligo_compile_type(*, src_file: Path, typ: str):
     return compiled[0]["args"][0]
 
 
-def ligo_compile(*, src_file: Path, entrypoint: str, out_file: Path):
+def ligo_compile(*, src_file: Path, out_file: Path):
     """Compiles an mligo file into michelson using ligo"""
     try:
         res = subprocess.run(
@@ -81,9 +81,7 @@ def ligo_compile(*, src_file: Path, entrypoint: str, out_file: Path):
                 "ligo",
                 "compile",
                 "contract",
-                str(src_file),
-                "--entry-point",
-                entrypoint,
+                str(src_file)
             ],
             check=True,
             capture_output=True,
@@ -97,10 +95,10 @@ def ligo_compile(*, src_file: Path, entrypoint: str, out_file: Path):
 
 
 def parallel_compile_types(
-    *, src_file: Path, types: List[str], prefix="_view"
+    *, src_file: Path, types: List[str], prefix=""
 ):
     # We use lambdas to compile types because tuples give inconsistent results
-    types = "(" + "->".join([f"({t})" for t in types]) + ")"
+    types = "->".join([f"({t})" for t in types])
 
     raws = ligo_compile_type(src_file=src_file, typ=types)
 
@@ -113,13 +111,13 @@ def parallel_compile_types(
     return args
 
 
-def parallel_compile_views(src_file: Path, views, prefix="_view"):
+def parallel_compile_views(src_file: Path, views, prefix=""):
     rows = "; ".join(
         [f"x{i} = ({prefix + v[0]})" for (i, v) in enumerate(views)]
     )
     types = "; ".join(
         [
-            f"x{i} : (({v[1]} * {v[3]}) -> {v[2]})"
+            f"x{i} : ({v[1]} -> {v[3]} -> {v[2]})"
             for (i, v) in enumerate(views)
         ]
     )
@@ -144,7 +142,7 @@ def compile_entrypoint(main_file: Path, entrypoint: Tuple[int, str]):
 
 
 def compile_views(
-    *, main_file: Path, views_file: Path, pattern: str, prefix="view_"
+    *, main_file: Path, views_file: Path, pattern: str, prefix=""
 ):
     views = find_views(views_file, pattern)
     packed_views = []
@@ -237,9 +235,9 @@ def wctez_views(*, main_file: Path, views_file: Path):
 
 
 # TODO: use configurations
-def compile_everything(*, out_dir:str="generated/michelson",
-                       src_dir:str="src/",
-                       vendor_dir:str="vendor/"):
+def compile_everything(*, out_dir: str = "generated/michelson",
+                       src_dir: str = "src/",
+                       vendor_dir: str = "vendor/"):
     checkerMain = os.path.join(src_dir, "checkerMain.mligo")
     mockFA2Main = os.path.join(src_dir, "mockFA2Main.mligo")
     mockFA2Views = os.path.join(src_dir, "mockFA2.mligo")
@@ -263,15 +261,15 @@ def compile_everything(*, out_dir:str="generated/michelson",
     ctez_cfmm_tz = os.path.join(out_dir, "ctez_cfmm.tz")
     ctez_fa12_tz = os.path.join(out_dir, "ctez_fa12.tz")
 
-    ligo_compile(src_file=checkerMain, entrypoint="main", out_file=checker_tz)
-    ligo_compile(src_file=mockFA2Main, entrypoint="main", out_file=mockFA2_tz)
-    ligo_compile(src_file=ctezMain, entrypoint="main", out_file=ctez_tz)
+    ligo_compile(src_file=checkerMain, out_file=checker_tz)
+    ligo_compile(src_file=mockFA2Main, out_file=mockFA2_tz)
+    ligo_compile(src_file=ctezMain, out_file=ctez_tz)
     ligo_compile(
-        src_file=ctezCFMMMain, entrypoint="main", out_file=ctez_cfmm_tz
+        src_file=ctezCFMMMain, out_file=ctez_cfmm_tz
     )
-    ligo_compile(src_file=wtezMain, entrypoint="main", out_file=wtez_tz)
-    ligo_compile(src_file=wctezMain, entrypoint="main", out_file=wctez_tz)
-    ligo_compile(src_file=ctezFA12, entrypoint="main", out_file=ctez_fa12_tz)
+    ligo_compile(src_file=wtezMain, out_file=wtez_tz)
+    ligo_compile(src_file=wctezMain, out_file=wctez_tz)
+    ligo_compile(src_file=ctezFA12, out_file=ctez_fa12_tz)
 
     # JSON files
     mockFA2_metadata = mockFA2_views(
@@ -289,7 +287,8 @@ def compile_everything(*, out_dir:str="generated/michelson",
         json.dump(wctez_metadata, f, indent=2)
 
     checker_functions = compile_checker(
-        main_file=checkerMain, entrypoints_file=os.path.join(src_dir, "checkerEntrypoints.mligo")
+        main_file=checkerMain,
+        entrypoints_file=os.path.join(src_dir, "checkerEntrypoints.mligo")
     )
     with open(os.path.join(out_dir, "functions.json"), "w") as f:
         json.dump(checker_functions, f, indent=2)

@@ -31,7 +31,7 @@ let main (satellite: address) (state: state): operation list * state =
   else failwith "unauthorized"
 
 [@view]
-let get_price ((), state: unit * state): (nat * nat) =
+let get_price () (state: state): (nat * nat) =
   match (Tezos.call_view "getlastCompletedData" () state.satellite: satellite_data option) with
     | None -> failwith "failed to retrieve data"
     (* Checker expects a price in tok, not in USD or EUR *)
